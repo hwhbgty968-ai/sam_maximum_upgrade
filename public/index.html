@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07111f"><title>SAM — Your AI Sidekick</title>
+<style>
+
+:root{--bg:#101114;--panel:#191a1f;--cyan:#b9c3d0;--muted:#9297a2;--line:#30323a;--text:#eceef2}
+*{box-sizing:border-box}
+body{margin:0;background:#101114;color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;min-height:100vh}
+header{display:flex;justify-content:space-between;align-items:center;padding:17px 5vw;border-bottom:1px solid var(--line);background:#141519}
+.brand{font-weight:750;letter-spacing:.16em;display:flex;align-items:center;gap:12px}
+.orb{width:27px;height:27px;border-radius:9px;background:linear-gradient(145deg,#e0e4eb,#697483);box-shadow:0 0 18px #aab5c322}
+.pill{border:1px solid #454852;color:#c1c7d1;padding:7px 11px;border-radius:30px;font-size:11px}
+main{max-width:1200px;margin:auto;padding:35px 22px 55px}
+.hero{text-align:center;margin-bottom:28px}
+.kicker{color:#aab2bf;font-size:10px;letter-spacing:.22em;font-weight:750}
+.hero h1{font-size:clamp(38px,6vw,58px);margin:12px 0;color:#f0f1f4;letter-spacing:-.045em;font-weight:650}
+.hero p{color:var(--muted);margin:0}
+.grid{display:grid;grid-template-columns:245px minmax(0,1fr);gap:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 35px #0002}
+.side{padding:17px}
+.avatar{height:125px;display:grid;place-items:center;background:#22242a;border:1px solid #383b44;border-radius:12px;position:relative;overflow:hidden}
+.avatar:before{content:"";width:62px;height:62px;border:1px solid #929baa;border-radius:18px;transform:rotate(45deg);position:absolute}
+.avatar:after{content:"";width:28px;height:28px;border:1px solid #c3cad4;border-radius:50%;position:absolute}
+.bot{font-size:0;z-index:1}
+.side h2{margin:15px 0 4px;font-size:20px;font-weight:650}
+.muted{color:var(--muted);font-size:12px}
+.tools{display:grid;gap:7px;margin-top:19px}
+.tools button,.secondary{background:#22242a;border:1px solid #373a43;color:#d5d8df;padding:11px;border-radius:9px;text-align:left;cursor:pointer}
+.tools button:hover,.secondary:hover{background:#2a2d34;border-color:#69717e}
+.chat{min-height:610px;display:flex;flex-direction:column;padding:17px}
+.chathead{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:3px 3px 14px;font-size:11px;letter-spacing:.1em;color:#c6cad2}
+.messages{flex:1;min-height:360px;max-height:490px;overflow:auto;display:flex;flex-direction:column;gap:13px;padding:18px 2px}
+.msg{max-width:88%;padding:12px 15px;border-radius:13px;font-size:14px;line-height:1.65;white-space:pre-wrap}
+.sam{background:#22242a;border:1px solid #363942;align-self:flex-start;border-bottom-left-radius:4px}
+.user{background:#343943;border:1px solid #454a55;align-self:flex-end;border-bottom-right-radius:4px}
+.label{display:block;color:#aeb7c5;font-size:10px;letter-spacing:.13em;font-weight:750;margin-bottom:5px}
+.compose{display:flex;gap:8px;border-top:1px solid var(--line);padding-top:14px}
+
+.image-preview{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.image-preview[hidden]{display:none}
+.image-preview img{width:46px;height:46px;object-fit:cover;border-radius:8px;border:1px solid #555}
+.image-preview button{width:22px;height:22px;border-radius:50%;border:0;background:#444;color:white;cursor:pointer}
+.compose.dragover{outline:2px dashed #aeb7c5;outline-offset:4px}
+
+.compose input,.field{width:100%;background:#121317;border:1px solid #393c45;border-radius:10px;color:white;padding:13px;font:inherit;outline:none}
+.compose input:focus,.field:focus{border-color:#9ca6b5}
+button{font:inherit}
+.send,.primary{border:1px solid #d0d4dc;border-radius:10px;background:#d7dbe2;color:#17191e;font-weight:700;padding:0 18px;cursor:pointer}
+.send:hover,.primary:hover{background:#fff}
+.quick{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.quick button{font-size:11px;padding:8px 10px;border-radius:8px;background:#202228;color:#c8ccd4;border:1px solid #383b44;cursor:pointer}
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.tab{border:1px solid #373a43;background:#202228;color:#bfc4ce;padding:8px 11px;border-radius:8px;cursor:pointer;font-size:12px}
+.tab.active{border-color:#aab3c1;color:#f0f1f4;background:#30333b}
+.section{display:none}
+.section.active{display:block}
+.form{max-width:430px;margin:30px auto;padding:25px}
+.form h2{margin-top:12px;font-size:27px;font-weight:650}
+.form input{margin:7px 0 12px}
+.form button{padding:12px 16px;width:100%}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.memory{padding:11px;border:1px solid #373a43;border-radius:9px;margin:8px 0;font-size:13px;display:flex;justify-content:space-between;gap:10px}
+.memory button{background:none;border:0;color:#d18b8b;cursor:pointer}
+.notice{font-size:12px;color:var(--muted);line-height:1.5;margin-top:12px}
+.hidden{display:none!important}
+footer{text-align:center;color:#737985;font-size:11px;margin-top:25px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.side{display:grid;grid-template-columns:85px 1fr;gap:12px;align-items:center}.avatar{height:85px;grid-row:span 2}.side h2{margin:0}.tools{grid-column:1/-1;grid-template-columns:1fr 1fr;margin-top:5px}.chat{min-height:540px}.messages{min-height:320px}}
+
+
+.conversation-list{display:grid;gap:6px;max-height:360px;overflow-y:auto;margin-top:5px}
+.conversation-item{display:block;width:100%;text-align:left;padding:10px;border:1px solid #ffffff18;border-radius:9px;background:#ffffff08;color:#eee;cursor:pointer}
+.conversation-item:hover,.conversation-item.active{background:#ffffff18;border-color:#aaa}
+.conversation-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.conversation-mode{display:block;color:#aaa;font-size:11px;margin-top:4px}
+
+</style></head>
+<body>
+<header><div class="brand"><div class="orb"></div>SAM / AI</div><div class="row" style="flex:initial"><span id="systemStatus" class="pill">● SYSTEM READY</span><button id="logout" class="tab hidden">Log out</button></div></header>
+<main>
+<section id="authView" class="panel form">
+<div class="kicker">PERSONAL AI ACCESS</div><h2>Welcome to Sam.</h2><p class="muted">Create your account or log in to keep your chat history and saved memories.</p>
+<label class="muted">Username</label><input id="username" class="field" maxlength="24" autocomplete="username" placeholder="3–24 letters, numbers, _ or -">
+<label class="muted">Age</label><input id="age" class="field" type="number" min="5" max="120" placeholder="Your age"><label class="muted">Password</label><input id="password" class="field" type="password" autocomplete="current-password" placeholder="At least 10 characters">
+<div class="row"><button id="login" class="primary">Log in</button><button id="register" class="secondary">Create account</button></div><p id="authMessage" class="notice">Your account is stored on the server hosting this app. Use a unique password.</p>
+</section>
+<section id="appView" class="hidden">
+<div class="hero"><div class="kicker">YOUR FUTURE, WITH A SIDEKICK</div><h1>Meet Sam.</h1><p>Your witty, curious AI sidekick. Ready when you are.</p></div>
+<div class="grid">
+<aside class="panel side"><div class="avatar"><div class="bot">🤖</div></div><div><h2>Sam</h2><div class="muted">Funny · Clever · Here to help</div><div id="welcomeUser" class="muted"></div></div>
+<div class="tools">
+<button data-tab="chat">Chat with Sam</button>
+<button data-tab="memory">Saved memory</button>
+<button data-tab="settings">Settings & voice</button>
+<div class="tool-heading">AI TOOLS</div>
+<button data-tool="web">Web Search</button>
+<button data-tool="research">Deep Research</button>
+<button data-tool="vision">Image & File Analysis</button>
+<button data-tool="image">Image Generation</button>
+<button data-tool="coding">Coding Assistant</button>
+<div class="tool-heading">CHATS</div>
+<button id="newChat">＋ New chat</button>
+<div id="conversationList" class="conversation-list"></div>
+<button id="clearChat" data-tool="clear">Delete current chat</button>
+</div></aside>
+<section class="panel chat">
+<div class="tabs"><button class="tab active" data-tab="chat">Chat</button><button class="tab" data-tab="memory">Memory</button><button class="tab" data-tab="settings">Settings</button></div>
+<div id="chatSection" class="section active">
+<div class="chathead"><strong id="modeLabel">NORMAL CHAT</strong><span id="aiState" class="muted">Checking AI…</span></div>
+<div id="messages" class="messages"><div class="msg sam"><span class="label">SAM</span>Hey, legend! I'm online. Ask me anything — and yes, my joke circuits are fully charged. ⚡</div></div>
+<div class="compose"><input type="file" id="imageUpload" accept="image/*" hidden><div id="imagePreview" class="image-preview" hidden><img id="imagePreviewThumb" alt="Selected image"><button type="button" id="removeImage" title="Remove image">×</button></div><button id="attachImage" class="secondary" title="Attach an image">＋</button><input id="prompt" placeholder="Message Sam…" autocomplete="off"><button id="mic" class="secondary" title="Speak">🎙</button><button id="send" class="send">SEND ➜</button></div>
+<div class="quick"><button data-q="Tell me a surprising science fact">Fun fact</button><button data-q="Give me a brain teaser">Brain teaser</button><button data-q="Help me revise a school topic">Revision</button><button data-q="Give me a creative project idea">Creative idea</button></div>
+</div>
+<div id="memorySection" class="section"><h3>Sam's memory bank 🧠</h3><p class="muted">Add notes you want Sam to use in future chats. You control and can delete these notes.</p><div class="row"><input id="memoryInput" class="field" placeholder="e.g. Explain things in simple steps"><button id="saveMemory" class="primary">Save</button></div><div id="memoryList"></div></div>
+<div id="settingsSection" class="section"><h3>Sam control room ⚙</h3><p class="muted">Voice uses your browser's built-in speech features. Availability depends on your browser and device.</p><div class="row"><button id="voiceToggle" class="secondary">🔊 Voice replies: OFF</button><button id="speakTest" class="secondary">Test voice</button></div><p class="notice">Microphone input requires browser support and permission. Your microphone is only used when you press the microphone button.</p><hr style="border-color:#ffffff18;margin:20px 0"><h3>Account</h3><p class="muted">Signed in as <strong id="accountName"></strong>. Your chats and memories are stored in the app's SQLite database on its server.</p></div>
+</section></div></section>
+<footer>Sam AI · Keep your API key private · Use HTTPS when deploying publicly</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);let voiceOn=false,recognition=null;
+async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Something went wrong');return d}
+function showAuth(msg=''){ $('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
+function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent='Welcome, '+username;$('accountName').textContent=username;loadHistory()}
+async function boot(){try{const s=await api('/api/status');if(s.loggedIn)showApp(s.username);else showAuth();$('aiState').textContent=s.aiConfigured?'AI BRAIN CONNECTED':'AI KEY NOT CONFIGURED';$('systemStatus').textContent=s.aiConfigured?'● AI ONLINE':'● SETUP REQUIRED'}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
+$('register').onclick=async()=>{try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
+$('login').onclick=async()=>{try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
+$('logout').onclick=async()=>{await api('/api/logout',{method:'POST'});showAuth('You are logged out.')};
+function addMsg(text,who,imageUrl=null){const el=document.createElement('div');el.className='msg '+who;if(who==='sam'){const l=document.createElement('span');l.className='label';l.textContent='SAM';el.append(l)}if(imageUrl){const img=document.createElement('img');img.src=imageUrl;img.alt='Attached photo';img.style.cssText='display:block;max-width:240px;max-height:240px;object-fit:contain;border-radius:10px;margin-bottom:8px';el.append(img)}if(text)el.append(document.createTextNode(text));$('messages').append(el);$('messages').scrollTop=$('messages').scrollHeight}
+$('attachImage').onclick=()=> $('imageUpload').click();
+
+$('imageUpload').addEventListener('change',showImagePreview);
+function showImagePreview(){
+  const file=$('imageUpload').files[0];
+  if(!file)return;
+  if(!file.type.startsWith('image/')){clearImagePreview();return}
+  $('imagePreviewThumb').src=URL.createObjectURL(file);
+  $('imagePreview').hidden=false;
+}
+function clearImagePreview(){
+  const img=$('imagePreviewThumb');
+  if(img.src.startsWith('blob:'))URL.revokeObjectURL(img.src);
+  img.removeAttribute('src');
+  $('imageUpload').value='';
+  $('imagePreview').hidden=true;
+}
+$('removeImage').onclick=clearImagePreview;
+const compose=document.querySelector('.compose');
+compose.addEventListener('dragover',e=>{e.preventDefault();compose.classList.add('dragover')});
+compose.addEventListener('dragleave',()=>compose.classList.remove('dragover'));
+compose.addEventListener('drop',e=>{
+  e.preventDefault();
+  compose.classList.remove('dragover');
+  const file=[...e.dataTransfer.files].find(f=>f.type.startsWith('image/'));
+  if(file){
+    const transfer=new DataTransfer();
+    transfer.items.add(file);
+    $('imageUpload').files=transfer.files;
+    showImagePreview();
+  }
+});
+
+
+async function send(q){
+  q=(q||$('prompt').value).trim();
+  const file=$('imageUpload').files[0];
+  if(!q&&!file)return;
+  $('prompt').value='';
+  const messageImageUrl=file?URL.createObjectURL(file):null;
+  addMsg(file ? (q||'') : q,'user',messageImageUrl);
+  if(file)clearImagePreview();
+  $('send').disabled=true;
+  try{
+    let d;
+    if(file){
+      const form=new FormData();
+      form.append('image',file);
+      form.append('message',q||'Describe this image and explain what is important about it.');
+      form.append('conversationId',currentConversationId||'');
+      const r=await fetch('/api/analyse-image',{method:'POST',body:form});
+      d=await r.json();
+      if(!r.ok)throw Error(d.error||'Image analysis failed.');
+    }else{
+      d=await api('/api/chat',{method:'POST',body:JSON.stringify({message:q,conversationId:currentConversationId,mode:currentMode})});
+    }
+    if(d.conversationId)currentConversationId=d.conversationId;if(d.mode)currentMode=d.mode;addMsg(d.answer,'sam');await loadConversations();
+    if(voiceOn)speak(d.answer);
+  }catch(e){addMsg(e.message,'sam')}
+  finally{$('send').disabled=false}
+}
+$('send').onclick=()=>send();$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter')send()});document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>send(b.dataset.q));
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===b.dataset.tab));['chat','memory','settings'].forEach(n=>$(n+'Section').classList.toggle('active',n===b.dataset.tab));if(b.dataset.tab==='memory')loadMemories()});
+
+const modeNames = {
+  chat: "Normal Chat",
+  web: "Web Search",
+  research: "Deep Research",
+  vision: "Image & File Analysis",
+  image: "Image Generation",
+  coding: "Coding Assistant"
+};
+
+let currentConversationId = null;
+let currentMode = "chat";
+
+async function loadConversations() {
+  const d = await api("/api/conversations");
+  const list = $("conversationList");
+  list.innerHTML = "";
+  (d.conversations || []).forEach(c => {
+    const b = document.createElement("button");
+    b.className = "conversation-item" + (String(c.id) === String(currentConversationId) ? " active" : "");
+    const title = document.createElement("span");
+    title.className = "conversation-title";
+    title.textContent = c.title || "New chat";
+    const mode = document.createElement("span");
+    mode.className = "conversation-mode";
+    mode.textContent = modeNames[c.mode] || "Normal Chat";
+    b.append(title, mode);
+    b.onclick = () => openConversation(c.id);
+    list.append(b);
+  });
+}
+
+async function openConversation(id) {
+  const d = await api("/api/conversations/" + id);
+  currentConversationId = id;
+  currentMode = d.conversation?.mode || d.mode || "chat";
+  $("modeLabel").textContent = (modeNames[currentMode] || "Normal Chat").toUpperCase();
+  $("messages").innerHTML = "";
+  (d.messages || []).forEach(m => addMsg(m.content, m.role === "user" ? "user" : "sam"));
+  if (!(d.messages || []).length) addMsg("A fresh workspace. What shall we work on?", "sam");
+  document.querySelector('[data-tab="chat"]').click();
+  await loadConversations();
+}
+
+async function createConversation(mode = "chat") {
+  const d = await api("/api/conversations", {
+    method: "POST",
+    body: JSON.stringify({ mode })
+  });
+  const c = d.conversation || d;
+  if (!c.id) throw Error("Sam did not return a new conversation ID.");
+  currentConversationId = c.id;
+  currentMode = mode;
+  $("modeLabel").textContent = (modeNames[mode] || "Normal Chat").toUpperCase();
+  $("messages").innerHTML = "";
+  addMsg("A new " + (modeNames[mode] || "chat") + " workspace is ready.", "sam");
+  document.querySelector('[data-tab="chat"]').click();
+  await loadConversations();
+}
+
+$("newChat").onclick = () => createConversation("chat").catch(e => addMsg(e.message, "sam"));
+
+const toolPrompts = {
+  web: "Search the web for this topic and provide useful source links: ",
+  research: "Research this topic in depth, compare reliable sources and explain the findings: ",
+  coding: "Act as my coding assistant. Help me write, understand, debug and improve code: "
+};
+
+document.querySelectorAll("[data-tool]").forEach(b => {
+  b.onclick = async () => {
+    const tool = b.dataset.tool;
+    if (tool === "clear") {
+      if (!currentConversationId) return;
+      if (confirm("Delete this conversation?")) {
+        try {
+          await api("/api/conversations/" + currentConversationId, { method: "DELETE" });
+          await createConversation(currentMode);
+        } catch (e) { addMsg(e.message, "sam"); }
+      }
+      return;
+    }
+    try {
+      await createConversation(tool);
+      if (toolPrompts[tool]) $("prompt").value = toolPrompts[tool];
+      if (tool === "vision") {
+        addMsg("Attach an image using the ＋ button, then ask me to analyse it.", "sam");
+      } else if (tool === "image") {
+        addMsg("This is your Image Generation workspace. Image generation still needs to be connected.", "sam");
+      }
+      $("prompt").focus();
+    } catch (e) { addMsg(e.message, "sam"); }
+  };
+});
+
+async function loadHistory() {
+  try {
+    const d = await api("/api/history");
+    renderMemories(d.memories || []);
+    const chats = await api("/api/conversations");
+    if ((chats.conversations || []).length) {
+      await openConversation(chats.conversations[0].id);
+    } else {
+      await createConversation("chat");
+    }
+  } catch (e) { addMsg(e.message, "sam"); }
+}
+async function loadMemories(){try{const d=await api('/api/history');renderMemories(d.memories)}catch(e){}}
+function renderMemories(items){$('memoryList').innerHTML='';if(!items.length){$('memoryList').textContent='No saved memories yet.';return}items.forEach(m=>{const row=document.createElement('div');row.className='memory';const span=document.createElement('span');span.textContent=m.content;const del=document.createElement('button');del.textContent='Delete';del.onclick=async()=>{await api('/api/memories/'+m.id,{method:'DELETE'});loadMemories()};row.append(span,del);$('memoryList').append(row)})}
+$('saveMemory').onclick=async()=>{try{await api('/api/memories',{method:'POST',body:JSON.stringify({content:$('memoryInput').value})});$('memoryInput').value='';loadMemories()}catch(e){alert(e.message)}};
+$('clearChat').onclick=async()=>{if(!currentConversationId)return;if(confirm('Delete this conversation?')){try{await api('/api/conversations/'+currentConversationId,{method:'DELETE'});await createConversation(currentMode)}catch(e){addMsg(e.message,'sam')}}};
+function speak(text){if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=1.04;u.pitch=1.08;window.speechSynthesis.speak(u)}
+$('voiceToggle').onclick=()=>{voiceOn=!voiceOn;$('voiceToggle').textContent='🔊 Voice replies: '+(voiceOn?'ON':'OFF')};$('speakTest').onclick=()=>speak("Hello! I'm Sam. Your circuits are looking fabulous today.");
+$('mic').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Speech recognition is not supported in this browser. Try a recent Chrome browser.');return}recognition=new SR();recognition.lang='en-GB';recognition.onresult=e=>{$('prompt').value=e.results[0][0].transcript};recognition.onerror=()=>alert('Microphone unavailable. Check browser permission.');recognition.start()};
+boot();
+</script></body></html>

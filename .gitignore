@@ -1,0 +1,12 @@
+node_modules/
+.env
+sam.sqlite
+sam.sqlite-shm
+sam.sqlite-wal
+
+# Local backups and logs
+*.backup
+*.age-backup
+*.before-*
+*.broken-*
+*.log
