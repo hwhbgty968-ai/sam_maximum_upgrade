@@ -83,7 +83,7 @@ footer{text-align:center;color:#737985;font-size:11px;margin-top:25px}
 <section id="authView" class="panel form">
 <div class="kicker">PERSONAL AI ACCESS</div><h2>Welcome to Sam.</h2><p class="muted">Create your account or log in to keep your chat history and saved memories.</p>
 <label class="muted">Username</label><input id="username" class="field" maxlength="24" autocomplete="username" placeholder="3–24 letters, numbers, _ or -">
-<label class="muted">Age</label><input id="age" class="field" type="number" min="5" max="120" placeholder="Your age"><label class="muted">Password</label><input id="password" class="field" type="password" autocomplete="current-password" placeholder="At least 10 characters">
+<div id="ageField" hidden><label class="muted">Age</label><input id="age" class="field" type="number" min="5" max="120" placeholder="Your age"></div><label class="muted">Password</label><input id="password" class="field" type="password" autocomplete="current-password" placeholder="At least 10 characters">
 <div class="row"><button id="login" class="primary">Log in</button><button id="register" class="secondary">Create account</button></div><p id="authMessage" class="notice">Your account is stored on the server hosting this app. Use a unique password.</p>
 </section>
 <section id="appView" class="hidden">
@@ -121,11 +121,13 @@ footer{text-align:center;color:#737985;font-size:11px;margin-top:25px}
 <script>
 const $=id=>document.getElementById(id);let voiceOn=false,recognition=null;
 async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Something went wrong');return d}
-function showAuth(msg=''){ $('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
+let registering=false;
+function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
+function showAuth(msg=''){setAuthMode(false);$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
 function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent='Welcome, '+username;$('accountName').textContent=username;loadHistory()}
 async function boot(){try{const s=await api('/api/status');if(s.loggedIn)showApp(s.username);else showAuth();$('aiState').textContent=s.aiConfigured?'AI BRAIN CONNECTED':'AI KEY NOT CONFIGURED';$('systemStatus').textContent=s.aiConfigured?'● AI ONLINE':'● SETUP REQUIRED'}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
-$('register').onclick=async()=>{try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
-$('login').onclick=async()=>{try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
+$('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
+$('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
 $('logout').onclick=async()=>{await api('/api/logout',{method:'POST'});showAuth('You are logged out.')};
 function addMsg(text,who,imageUrl=null){const el=document.createElement('div');el.className='msg '+who;if(who==='sam'){const l=document.createElement('span');l.className='label';l.textContent='SAM';el.append(l)}if(imageUrl){const img=document.createElement('img');img.src=imageUrl;img.alt='Attached photo';img.style.cssText='display:block;max-width:240px;max-height:240px;object-fit:contain;border-radius:10px;margin-bottom:8px';el.append(img)}if(text)el.append(document.createTextNode(text));$('messages').append(el);$('messages').scrollTop=$('messages').scrollHeight}
 $('attachImage').onclick=()=> $('imageUpload').click();
