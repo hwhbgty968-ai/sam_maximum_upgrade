@@ -91,12 +91,15 @@ footer{text-align:center;color:#737985;font-size:11px;margin-top:25px}
 .status-line{color:var(--muted);font-style:italic}
 .stop{border:1px solid #6b4a4a;background:#2a1f1f;color:#f0caca;border-radius:10px;padding:0 14px;cursor:pointer}
 button:disabled{opacity:.55;cursor:not-allowed}
+.danger{color:#f0b4b4!important;border-color:#6b4a4a!important}
+.danger-solid{background:#b94a4a!important;border-color:#b94a4a!important;color:#fff!important}
+#settingsSection h4{margin:18px 0 8px;font-size:13px;color:#c6cad2}
 .typing:after{content:"▍";animation:blink 1s steps(1) infinite;color:#aeb7c5}
 @keyframes blink{50%{opacity:0}}
 
 </style></head>
 <body>
-<header><div class="brand"><div class="orb"></div>SAM / AI</div><div class="row" style="flex:initial"><span id="systemStatus" class="pill">● SYSTEM READY</span><button id="logout" class="tab hidden">Log out</button></div></header>
+<header><div class="brand"><div class="orb"></div>SAM / AI</div><div class="row" style="flex:initial"><span id="systemStatus" class="pill">● SYSTEM READY</span><a id="adminLink" class="tab hidden" href="/admin" style="text-decoration:none">Admin</a><button id="logout" class="tab hidden">Log out</button></div></header>
 <main>
 <section id="authView" class="panel form">
 <div class="kicker">PERSONAL AI ACCESS</div><h2>Welcome to Sam.</h2><p class="muted">Create your account or log in to keep your chat history and saved memories.</p>
@@ -133,18 +136,26 @@ button:disabled{opacity:.55;cursor:not-allowed}
 <div class="quick"><button data-q="Tell me a surprising science fact">Fun fact</button><button data-q="Give me a brain teaser">Brain teaser</button><button data-q="Help me revise a school topic">Revision</button><button data-q="Give me a creative project idea">Creative idea</button></div>
 </div>
 <div id="memorySection" class="section"><h3>Sam's memory bank 🧠</h3><p class="muted">Add notes you want Sam to use in future chats. You control and can delete these notes.</p><div class="row"><input id="memoryInput" class="field" placeholder="e.g. Explain things in simple steps"><button id="saveMemory" class="primary">Save</button></div><div id="memoryList"></div></div>
-<div id="settingsSection" class="section"><h3>Sam control room ⚙</h3><p class="muted">Voice uses your browser's built-in speech features. Availability depends on your browser and device.</p><div class="row"><button id="voiceToggle" class="secondary">🔊 Voice replies: OFF</button><button id="speakTest" class="secondary">Test voice</button></div><p class="notice">Microphone input requires browser support and permission. Your microphone is only used when you press the microphone button.</p><hr style="border-color:#ffffff18;margin:20px 0"><h3>Account</h3><p class="muted">Signed in as <strong id="accountName"></strong>. Your chats and memories are stored in the app's SQLite database on its server.</p></div>
+<div id="settingsSection" class="section"><h3>Sam control room ⚙</h3><p class="muted">Voice uses your browser's built-in speech features. Availability depends on your browser and device.</p><div class="row"><button id="voiceToggle" class="secondary">🔊 Voice replies: OFF</button><button id="speakTest" class="secondary">Test voice</button></div><p class="notice">Microphone input requires browser support and permission. Your microphone is only used when you press the microphone button.</p><hr style="border-color:#ffffff18;margin:20px 0"><h3>Account</h3><p class="muted">Signed in as <strong id="accountName"></strong>. Your chats and memories are stored in the app's SQLite database on its server.</p>
+<p class="muted" id="myUsage"></p>
+<h4>Change password</h4>
+<div class="row"><input id="pwCurrent" type="password" class="field" placeholder="Current password" autocomplete="current-password"><input id="pwNew" type="password" class="field" placeholder="New password (10+ characters)" autocomplete="new-password"><button id="pwChange" class="primary" style="padding:12px 16px">Update</button></div>
+<p id="pwMsg" class="notice"></p>
+<h4>Your data</h4>
+<div class="row"><button id="exportData" class="secondary">⬇ Export my data (JSON)</button><button id="deleteAccount" class="secondary danger">Delete my account…</button></div>
+<div id="deleteBox" class="hidden"><p class="notice">This permanently deletes your account, chats, memories and usage history. It can't be undone.</p><div class="row"><input id="deletePw" type="password" class="field" placeholder="Type your password to confirm" autocomplete="current-password"><button id="deleteConfirm" class="primary danger-solid" style="padding:12px 16px">Delete forever</button></div><p id="deleteMsg" class="notice"></p></div></div>
 </section></div></section>
 <footer>Sam AI · Keep your API key private · Use HTTPS when deploying publicly</footer>
 </main>
 <script>
 const $=id=>document.getElementById(id);let voiceOn=false,recognition=null;
-function authExpired(){showAuth('Your session ended — please log in again.');return Error('Please log in again.')}
-async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}})}catch(e){throw Error('Can\'t reach Sam\'s server. Check your connection.')}const d=await r.json().catch(()=>({}));if(r.status===401&&!/\/api\/(login|register)/.test(url))throw authExpired();if(!r.ok)throw Error(d.error||'Something went wrong');return d}
+const SESSION_CODES=['AUTH_REQUIRED','PASSWORD_CHANGED','ACCOUNT_DISABLED'];
+function authExpired(d={}){const m=d.code==='ACCOUNT_DISABLED'?'This account has been disabled.':d.code==='PASSWORD_CHANGED'?'Your password was changed — please log in again.':'Your session ended — please log in again.';showAuth(m);return Error(m)}
+async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}})}catch(e){throw Error('Can\'t reach Sam\'s server. Check your connection.')}const d=await r.json().catch(()=>({}));if(r.status===401&&SESSION_CODES.includes(d.code))throw authExpired(d);if(!r.ok)throw Error(d.error||'Something went wrong');return d}
 let registering=false;
 function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
-function showAuth(msg=''){setAuthMode(false);$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
-function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent='Welcome, '+username;$('accountName').textContent=username;loadModels();loadHistory()}
+function showAuth(msg=''){setAuthMode(false);$('adminLink').classList.add('hidden');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
+function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent='Welcome, '+username;$('accountName').textContent=username;loadModels();loadHistory();api('/api/status').then(s=>$('adminLink').classList.toggle('hidden',!s.isAdmin)).catch(()=>{})}
 async function boot(){try{const s=await api('/api/status');if(s.loggedIn)showApp(s.username);else showAuth();$('aiState').textContent=s.aiConfigured?((s.providers||[]).length+' AI PROVIDER'+((s.providers||[]).length===1?'':'S')+' ONLINE'):'AI KEY NOT CONFIGURED';$('systemStatus').textContent=s.aiConfigured?'● AI ONLINE':'● SETUP REQUIRED'}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
 $('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
 $('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
@@ -206,8 +217,7 @@ async function streamChat(body){
   let r;
   try{r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,model:$('modelPick').value,speed:$('speedPick').value}),signal:activeController.signal})}
   catch(e){if(e.name==='AbortError')return {answer:'',streamed:true,stopped:true};throw Error('Can\'t reach Sam\'s server. Check your connection.')}
-  if(r.status===401)throw authExpired();
-  if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));throw Error(d.error||'Something went wrong')}
+  if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
   const el=addMsg('','sam');const md=()=>el.querySelector('.md');
   md().classList.add('typing');md().innerHTML='<span class="status-line">Thinking…</span>';
   const reader=r.body.getReader();const dec=new TextDecoder();let buf='',answer='',meta={};
@@ -286,8 +296,8 @@ async function send(q){
       form.append('message',q||'Describe this image and explain what is important about it.');
       form.append('conversationId',currentConversationId||'');form.append('model',$('modelPick').value);
       const r=await fetch('/api/analyse-image',{method:'POST',body:form});
-      if(r.status===401)throw authExpired();
       d=await r.json().catch(()=>({}));
+      if(r.status===401)throw authExpired(d);
       if(!r.ok)throw Error(d.error||'Image analysis failed.');
     }else{
       d=await streamChat({message:q,conversationId:currentConversationId,mode:currentMode});
@@ -413,5 +423,11 @@ $('clearChat').onclick=async()=>{if(!currentConversationId)return;if(confirm('De
 function speak(text){if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();text=text.replace(/```[\s\S]*?```/g,' (code block) ').replace(/[*#`_>]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1');const u=new SpeechSynthesisUtterance(text);u.rate=1.04;u.pitch=1.08;window.speechSynthesis.speak(u)}
 $('voiceToggle').onclick=()=>{voiceOn=!voiceOn;$('voiceToggle').textContent='🔊 Voice replies: '+(voiceOn?'ON':'OFF')};$('speakTest').onclick=()=>speak("Hello! I'm Sam. Your circuits are looking fabulous today.");
 $('mic').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Speech recognition is not supported in this browser. Try a recent Chrome browser.');return}recognition=new SR();recognition.lang='en-GB';recognition.onresult=e=>{$('prompt').value=e.results[0][0].transcript};recognition.onerror=()=>alert('Microphone unavailable. Check browser permission.');recognition.start()};
+async function loadMyUsage(){try{const u=await api('/api/usage');$('myUsage').textContent=`Your AI usage: ${u.today.requests} request${u.today.requests===1?'':'s'} today, ${u.last30Days.requests} in the last 30 days (~${(u.last30Days.input_tokens+u.last30Days.output_tokens).toLocaleString()} tokens).`}catch(e){}}
+document.querySelectorAll('[data-tab="settings"]').forEach(b=>b.addEventListener('click',loadMyUsage));
+$('pwChange').onclick=async()=>{$('pwMsg').textContent='';try{await api('/api/account/password',{method:'POST',body:JSON.stringify({current:$('pwCurrent').value,next:$('pwNew').value})});$('pwCurrent').value=$('pwNew').value='';$('pwMsg').textContent='✅ Password updated. Other devices have been signed out.'}catch(e){$('pwMsg').textContent=e.message}};
+$('exportData').onclick=()=>{window.location.href='/api/account/export'};
+$('deleteAccount').onclick=()=>{$('deleteBox').classList.toggle('hidden');$('deletePw').focus()};
+$('deleteConfirm').onclick=async()=>{$('deleteMsg').textContent='';if(!confirm('Really delete your Sam account and everything in it?'))return;try{await api('/api/account',{method:'DELETE',body:JSON.stringify({password:$('deletePw').value})});$('deletePw').value='';$('deleteBox').classList.add('hidden');showAuth('Your account has been deleted.')}catch(e){$('deleteMsg').textContent=e.message}};
 boot();
 </script></body></html>

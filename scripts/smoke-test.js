@@ -1,15 +1,17 @@
 // Multi-user smoke test. Start Sam first (npm start), then in another terminal: npm run test:smoke
-// Optional: BASE_URL=https://your-sam.onrender.com npm run test:smoke
-// Creates two throwaway accounts and checks login, privacy between users, chats, memories and AI replies.
+// Options:
+//   BASE_URL=https://your-sam.onrender.com npm run test:smoke      test a deployed copy
+//   SMOKE_ADMIN_USER=you SMOKE_ADMIN_PASS='...' npm run test:smoke  also test the admin dashboard
+// Creates throwaway accounts (smokeA_…, smokeB_…). User B deletes itself at the end.
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 let passed = 0, failed = 0;
 
 function client() {
   let cookie = "";
-  return async function call(method, url, body) {
+  return async function call(method, url, body, headers = {}) {
     const res = await fetch(BASE + url, {
       method,
-      headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) },
+      headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}), ...headers },
       body: body ? JSON.stringify(body) : undefined
     });
     const set = res.headers.get("set-cookie");
@@ -17,60 +19,64 @@ function client() {
     const text = await res.text();
     let data = text;
     try { data = JSON.parse(text); } catch {}
-    return { status: res.status, data, text };
+    return { status: res.status, data, text, headers: res.headers };
   };
 }
 
 function check(name, ok, detail = "") {
   if (ok) { passed++; console.log("  ✅ " + name); }
-  else { failed++; console.log("  ❌ " + name + (detail ? "  → " + detail : "")); }
+  else { failed++; console.log("  ❌ " + name + (detail ? "  → " + String(detail).slice(0, 300) : "")); }
 }
 
 (async () => {
   console.log(`Testing Sam at ${BASE}\n`);
   const id = Date.now().toString(36);
-  const A = client(), B = client(), anon = client();
-  const pw = "test-password-" + id;
+  const A = client(), A2 = client(), B = client(), anon = client();
+  const userA = "smokeA_" + id, userB = "smokeB_" + id;
+  const pw = "test-password-" + id, pw2 = "new-password-" + id;
 
+  console.log("Basics");
   const health = await anon("GET", "/healthz");
   check("health check responds", health.status === 200 && health.data.ok, health.text);
-
   const st = await anon("GET", "/api/status");
   check("status works logged out", st.status === 200 && st.data.loggedIn === false);
+  check("every response has a request ID", !!st.headers.get("x-request-id"));
   const aiOn = !!st.data.aiConfigured;
-
   check("protected route needs login", (await anon("GET", "/api/conversations")).status === 401);
   check("unknown API route returns JSON 404", (await anon("GET", "/api/nope")).status === 404);
 
-  const ra = await A("POST", "/api/register", { username: "smokeA_" + id, password: pw, age: 15 });
+  console.log("\nAccounts");
+  const ra = await A("POST", "/api/register", { username: userA, password: pw, age: 15 });
   check("user A can register", ra.status === 200 && ra.data.ok, ra.text);
-  const rb = await B("POST", "/api/register", { username: "smokeB_" + id, password: pw, age: 30 });
+  const rb = await B("POST", "/api/register", { username: userB, password: pw, age: 30 });
   check("user B can register", rb.status === 200 && rb.data.ok, rb.text);
-
-  const dup = await anon("POST", "/api/register", { username: "SMOKEA_" + id, password: pw, age: 20 });
+  const dup = await anon("POST", "/api/register", { username: userA.toUpperCase(), password: pw, age: 20 });
   check("duplicate username (different case) rejected", dup.status === 409, dup.text);
-
   const sa = await A("GET", "/api/status");
-  check("user A session sticks after register", sa.data.loggedIn === true && sa.data.username === "smokeA_" + id, sa.text);
+  check("user A session sticks after register", sa.data.loggedIn === true && sa.data.username === userA, sa.text);
+  check("user A is not an admin", sa.data.isAdmin === false);
+  check("wrong password rejected", (await anon("POST", "/api/login", { username: userA, password: "wrong-password!!" })).status === 401);
+  const a2 = await A2("POST", "/api/login", { username: userA, password: pw });
+  check("user A can also log in on a second device", a2.status === 200, a2.text);
 
-  const bad = await anon("POST", "/api/login", { username: "smokeA_" + id, password: "wrong-password!!" });
-  check("wrong password rejected", bad.status === 401);
-
+  console.log("\nPrivacy between users");
   const ca = await A("POST", "/api/conversations", { mode: "chat" });
   check("user A can create a chat", ca.status === 200 && ca.data.id, ca.text);
-  const peek = await B("GET", "/api/conversations/" + ca.data.id);
-  check("user B CANNOT read user A's chat", peek.status === 404, peek.text);
-  const del = await B("DELETE", "/api/conversations/" + ca.data.id);
-  check("user B CANNOT delete user A's chat", del.status === 404, del.text);
-
+  check("user B CANNOT read user A's chat", (await B("GET", "/api/conversations/" + ca.data.id)).status === 404);
+  check("user B CANNOT delete user A's chat", (await B("DELETE", "/api/conversations/" + ca.data.id)).status === 404);
   await A("POST", "/api/memories", { content: "A's private note " + id });
+  await B("POST", "/api/memories", { content: "B's private note " + id });
   const memB = await B("GET", "/api/history");
   check("user B cannot see user A's memories", !JSON.stringify(memB.data).includes("A's private note " + id));
+  check("user B cannot post into user A's chat", (await B("POST", "/api/chat", { message: "hi", conversationId: ca.data.id })).status === 404);
 
-  const chatB = await B("POST", "/api/chat", { message: "hi", conversationId: ca.data.id });
-  check("user B cannot post into user A's chat", chatB.status === 404, chatB.text.slice(0, 200));
+  console.log("\nSecurity");
+  const evil = await A("POST", "/api/memories", { content: "from evil site" }, { Origin: "https://evil.example" });
+  check("cross-site request blocked (CSRF)", evil.status === 403, evil.text);
+  check("non-admin can't open admin API", (await A("GET", "/api/admin/overview")).status === 403);
 
   if (aiOn) {
+    console.log("\nAI");
     const t0 = Date.now();
     const chat = await A("POST", "/api/chat", { message: "Reply with just the word: pong", conversationId: ca.data.id, speed: "fast" });
     const events = chat.text.split("\n\n").filter(l => l.startsWith("data: ")).map(l => JSON.parse(l.slice(6)));
@@ -79,18 +85,72 @@ function check(name, ok, detail = "") {
     check(`AI replies (${((Date.now() - t0) / 1000).toFixed(1)}s, model: ${events.find(e => e.model)?.model || "?"})`, !err && answer.length > 0, err?.error || chat.text.slice(0, 300));
     const saved = await A("GET", "/api/conversations/" + ca.data.id);
     check("reply saved to chat history", saved.data.messages?.length >= 2, saved.text.slice(0, 200));
+    const usage = await A("GET", "/api/usage");
+    check("usage recorded for user A", usage.data.today?.requests >= 1, usage.text);
   } else {
-    console.log("  ⏭  AI reply test skipped — no AI key configured on the server");
+    console.log("\n  ⏭  AI tests skipped — no AI key configured on the server");
   }
+
+  console.log("\nYour account");
+  const exp = await A("GET", "/api/account/export");
+  check("export contains A's own chat and memory", exp.status === 200 && exp.data.conversations?.some(c => c.id === ca.data.id) && exp.text.includes("A's private note " + id), exp.text.slice(0, 200));
+  check("export does NOT contain B's data", !exp.text.includes("B's private note") && !exp.text.includes("password_hash"));
+  const wrongPw = await A("POST", "/api/account/password", { current: "nope-nope-nope", next: pw2 });
+  check("change password: wrong current password rejected (and you stay logged in)", wrongPw.status === 400 && (await A("GET", "/api/conversations")).status === 200, wrongPw.text);
+  const ch = await A("POST", "/api/account/password", { current: pw, next: pw2 });
+  check("change password works", ch.status === 200, ch.text);
+  check("…this device stays logged in", (await A("GET", "/api/conversations")).status === 200);
+  check("…other device is signed out", (await A2("GET", "/api/conversations")).status === 401);
+  check("…old password no longer works", (await anon("POST", "/api/login", { username: userA, password: pw })).status === 401);
 
   await A("POST", "/api/logout");
   check("logout ends the session", (await A("GET", "/api/conversations")).status === 401);
-  const relog = await A("POST", "/api/login", { username: "SMOKEa_" + id, password: pw });
-  check("log back in (case-insensitive username)", relog.status === 200, relog.text);
+  const relog = await A("POST", "/api/login", { username: userA.replace("smokeA", "SMOKEa"), password: pw2 });
+  check("log back in (new password, any capitals)", relog.status === 200, relog.text);
   const again = await A("GET", "/api/conversations");
   check("chats still there after re-login", again.status === 200 && again.data.conversations.some(c => c.id === ca.data.id));
 
+  if (process.env.SMOKE_ADMIN_USER) {
+    console.log("\nAdmin");
+    const ADM = client();
+    const al = await ADM("POST", "/api/login", { username: process.env.SMOKE_ADMIN_USER, password: process.env.SMOKE_ADMIN_PASS });
+    check("admin can log in", al.status === 200, al.text);
+    const ov = await ADM("GET", "/api/admin/overview");
+    check("admin overview loads", ov.status === 200 && ov.data.users >= 2, ov.text);
+    const ul = await ADM("GET", "/api/admin/users?q=" + userA);
+    const uA = ul.data.users?.find(u => u.username === userA);
+    check("admin can find user A", !!uA, ul.text);
+    if (uA) {
+      check("admin can disable user A", (await ADM("PATCH", `/api/admin/users/${uA.id}`, { disabled: true })).status === 200);
+      check("…disabled user is kicked out immediately", (await A("GET", "/api/conversations")).status === 401);
+      check("…and can't log in", (await anon("POST", "/api/login", { username: userA, password: pw2 })).status === 403);
+      check("admin can re-enable user A", (await ADM("PATCH", `/api/admin/users/${uA.id}`, { disabled: false })).status === 200);
+      const rl = await ADM("POST", `/api/admin/users/${uA.id}/reset-link`);
+      const token = (rl.data.url || "").split("#token=")[1];
+      check("admin can create a reset link", rl.status === 200 && /^[a-f0-9]{64}$/.test(token || ""), rl.text);
+      const pw3 = "reset-password-" + id;
+      check("reset link sets a new password", (await anon("POST", "/api/reset-password", { token, password: pw3 })).status === 200);
+      check("reset link can't be used twice", (await anon("POST", "/api/reset-password", { token, password: pw3 + "x" })).status === 400);
+      check("user A logs in with the reset password", (await A("POST", "/api/login", { username: userA, password: pw3 })).status === 200);
+    }
+    const us = await ADM("GET", "/api/admin/usage?days=1");
+    check("admin usage report loads", us.status === 200 && Array.isArray(us.data.rows), us.text);
+    check("admin error log loads", (await ADM("GET", "/api/admin/errors")).status === 200);
+    const bk = await ADM("POST", "/api/admin/backups");
+    check("admin can run a backup", bk.status === 200 && /^sam-.*\.sqlite$/.test(bk.data.file || ""), bk.text);
+  } else {
+    console.log("\n  ⏭  Admin tests skipped — set SMOKE_ADMIN_USER and SMOKE_ADMIN_PASS to include them");
+  }
+
+  console.log("\nAccount deletion (user B)");
+  check("delete account: wrong password refused", (await B("DELETE", "/api/account", { password: "wrong-wrong-wrong" })).status === 400);
+  const del = await B("DELETE", "/api/account", { password: pw });
+  check("user B can delete their account", del.status === 200, del.text);
+  check("…B's session is gone", (await B("GET", "/api/conversations")).status === 401);
+  check("…B can't log in any more", (await anon("POST", "/api/login", { username: userB, password: pw })).status === 401);
+  check("…A is unaffected", (await A("GET", "/api/conversations")).status === 200);
+
   console.log(`\n${passed} passed, ${failed} failed`);
-  console.log("(Test accounts smokeA_/smokeB_ were left in the database — harmless, delete them if you like.)");
+  console.log(`(Test account ${userA} was left in the database — delete it from /admin if you like.)`);
   process.exit(failed ? 1 : 0);
 })().catch(e => { console.error("\nCould not run tests:", e.message, "\nIs Sam running at " + BASE + "?"); process.exit(1); });
