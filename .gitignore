@@ -10,3 +10,5 @@ sam.sqlite-wal
 *.before-*
 *.broken-*
 *.log
+
+backups/

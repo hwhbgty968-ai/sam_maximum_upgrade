@@ -75,6 +75,24 @@ footer{text-align:center;color:#737985;font-size:11px;margin-top:25px}
 .conversation-item:hover,.conversation-item.active{background:#ffffff18;border-color:#aaa}
 .conversation-title{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
 .conversation-mode{display:block;color:#aaa;font-size:11px;margin-top:4px}
+.tool-heading{color:#7d838f;font-size:10px;letter-spacing:.18em;font-weight:750;margin:12px 0 2px}
+.msg.sam{white-space:normal}
+.md p{margin:0 0 .6em}.md p:last-child{margin-bottom:0}
+.md h1,.md h2,.md h3{font-size:15px;margin:.8em 0 .4em}
+.md ul,.md ol{margin:.3em 0 .7em;padding-left:1.3em}
+.md a{color:#9cc4ff}
+.md code{background:#121317;border:1px solid #33363e;border-radius:5px;padding:1px 5px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+.md pre{position:relative;background:#0d0e11;border:1px solid #33363e;border-radius:9px;padding:12px;overflow:auto;margin:.5em 0}
+.md pre code{background:none;border:0;padding:0;white-space:pre}
+.copy{position:absolute;top:6px;right:6px;font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid #444;background:#22242a;color:#ccc;cursor:pointer}
+.pickers{display:flex;gap:6px;align-items:center}
+.pick{background:#121317;border:1px solid #393c45;color:#d5d8df;border-radius:8px;padding:5px 8px;font-size:11px;max-width:210px}
+.via{display:block;margin-top:8px;color:#737985;font-size:10px;letter-spacing:.05em}
+.status-line{color:var(--muted);font-style:italic}
+.stop{border:1px solid #6b4a4a;background:#2a1f1f;color:#f0caca;border-radius:10px;padding:0 14px;cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed}
+.typing:after{content:"▍";animation:blink 1s steps(1) infinite;color:#aeb7c5}
+@keyframes blink{50%{opacity:0}}
 
 </style></head>
 <body>
@@ -98,8 +116,9 @@ footer{text-align:center;color:#737985;font-size:11px;margin-top:25px}
 <button data-tool="web">Web Search</button>
 <button data-tool="research">Deep Research</button>
 <button data-tool="vision">Image & File Analysis</button>
-<button data-tool="image">Image Generation</button>
+<button data-tool="image" disabled title="Coming in a later stage">Image Generation (soon)</button>
 <button data-tool="coding">Coding Assistant</button>
+<button data-tool="council">🏛 Sam Council</button>
 <div class="tool-heading">CHATS</div>
 <button id="newChat">＋ New chat</button>
 <div id="conversationList" class="conversation-list"></div>
@@ -108,9 +127,9 @@ footer{text-align:center;color:#737985;font-size:11px;margin-top:25px}
 <section class="panel chat">
 <div class="tabs"><button class="tab active" data-tab="chat">Chat</button><button class="tab" data-tab="memory">Memory</button><button class="tab" data-tab="settings">Settings</button></div>
 <div id="chatSection" class="section active">
-<div class="chathead"><strong id="modeLabel">NORMAL CHAT</strong><span id="aiState" class="muted">Checking AI…</span></div>
+<div class="chathead"><strong id="modeLabel">NORMAL CHAT</strong><div class="pickers"><select id="modelPick" class="pick" title="Which AI model answers"><option value="auto">Auto (Sam picks)</option></select><select id="speedPick" class="pick" title="Speed vs depth"><option value="auto">⚡ Auto speed</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option></select></div><span id="aiState" class="muted">Checking AI…</span></div>
 <div id="messages" class="messages"><div class="msg sam"><span class="label">SAM</span>Hey, legend! I'm online. Ask me anything — and yes, my joke circuits are fully charged. ⚡</div></div>
-<div class="compose"><input type="file" id="imageUpload" accept="image/*" hidden><div id="imagePreview" class="image-preview" hidden><img id="imagePreviewThumb" alt="Selected image"><button type="button" id="removeImage" title="Remove image">×</button></div><button id="attachImage" class="secondary" title="Attach an image">＋</button><input id="prompt" placeholder="Message Sam…" autocomplete="off"><button id="mic" class="secondary" title="Speak">🎙</button><button id="send" class="send">SEND ➜</button></div>
+<div class="compose"><input type="file" id="imageUpload" accept="image/*" hidden><div id="imagePreview" class="image-preview" hidden><img id="imagePreviewThumb" alt="Selected image"><button type="button" id="removeImage" title="Remove image">×</button></div><button id="attachImage" class="secondary" title="Attach an image">＋</button><input id="prompt" placeholder="Message Sam…" autocomplete="off"><button id="mic" class="secondary" title="Speak">🎙</button><button id="send" class="send">SEND ➜</button><button id="stop" class="stop hidden" title="Stop generating">■ Stop</button></div>
 <div class="quick"><button data-q="Tell me a surprising science fact">Fun fact</button><button data-q="Give me a brain teaser">Brain teaser</button><button data-q="Help me revise a school topic">Revision</button><button data-q="Give me a creative project idea">Creative idea</button></div>
 </div>
 <div id="memorySection" class="section"><h3>Sam's memory bank 🧠</h3><p class="muted">Add notes you want Sam to use in future chats. You control and can delete these notes.</p><div class="row"><input id="memoryInput" class="field" placeholder="e.g. Explain things in simple steps"><button id="saveMemory" class="primary">Save</button></div><div id="memoryList"></div></div>
@@ -120,16 +139,101 @@ footer{text-align:center;color:#737985;font-size:11px;margin-top:25px}
 </main>
 <script>
 const $=id=>document.getElementById(id);let voiceOn=false,recognition=null;
-async function api(url,opts={}){const r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Something went wrong');return d}
+function authExpired(){showAuth('Your session ended — please log in again.');return Error('Please log in again.')}
+async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}})}catch(e){throw Error('Can\'t reach Sam\'s server. Check your connection.')}const d=await r.json().catch(()=>({}));if(r.status===401&&!/\/api\/(login|register)/.test(url))throw authExpired();if(!r.ok)throw Error(d.error||'Something went wrong');return d}
 let registering=false;
 function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
 function showAuth(msg=''){setAuthMode(false);$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
-function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent='Welcome, '+username;$('accountName').textContent=username;loadHistory()}
-async function boot(){try{const s=await api('/api/status');if(s.loggedIn)showApp(s.username);else showAuth();$('aiState').textContent=s.aiConfigured?'AI BRAIN CONNECTED':'AI KEY NOT CONFIGURED';$('systemStatus').textContent=s.aiConfigured?'● AI ONLINE':'● SETUP REQUIRED'}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
+function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent='Welcome, '+username;$('accountName').textContent=username;loadModels();loadHistory()}
+async function boot(){try{const s=await api('/api/status');if(s.loggedIn)showApp(s.username);else showAuth();$('aiState').textContent=s.aiConfigured?((s.providers||[]).length+' AI PROVIDER'+((s.providers||[]).length===1?'':'S')+' ONLINE'):'AI KEY NOT CONFIGURED';$('systemStatus').textContent=s.aiConfigured?'● AI ONLINE':'● SETUP REQUIRED'}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
 $('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
 $('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
 $('logout').onclick=async()=>{await api('/api/logout',{method:'POST'});showAuth('You are logged out.')};
-function addMsg(text,who,imageUrl=null){const el=document.createElement('div');el.className='msg '+who;if(who==='sam'){const l=document.createElement('span');l.className='label';l.textContent='SAM';el.append(l)}if(imageUrl){const img=document.createElement('img');img.src=imageUrl;img.alt='Attached photo';img.style.cssText='display:block;max-width:240px;max-height:240px;object-fit:contain;border-radius:10px;margin-bottom:8px';el.append(img)}if(text)el.append(document.createTextNode(text));$('messages').append(el);$('messages').scrollTop=$('messages').scrollHeight}
+// ---- Safe mini markdown renderer (escapes HTML first, so AI output can't inject scripts) ----
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function inline(s){
+  return s.replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\s][^*]*)\*/g,'$1<em>$2</em>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+function renderMarkdown(src){
+  const parts=src.split(/```/);let html='';
+  parts.forEach((part,i)=>{
+    if(i%2===1){const nl=part.indexOf('\n');const code=nl>-1?part.slice(nl+1):part;html+='<pre><button class="copy">Copy</button><code>'+esc(code.replace(/\n$/,''))+'</code></pre>';return}
+    let list=null;
+    const close=()=>{if(list){html+='</'+list+'>';list=null}};
+    esc(part).split('\n').forEach(line=>{
+      let m;
+      if(m=line.match(/^\s*[-*•]\s+(.*)/)){if(list!=='ul'){close();html+='<ul>';list='ul'}html+='<li>'+inline(m[1])+'</li>'}
+      else if(m=line.match(/^\s*\d+[.)]\s+(.*)/)){if(list!=='ol'){close();html+='<ol>';list='ol'}html+='<li>'+inline(m[1])+'</li>'}
+      else if(m=line.match(/^(#{1,3})\s+(.*)/)){close();html+='<h3>'+inline(m[2])+'</h3>'}
+      else if(line.trim()===''){close()}
+      else{close();html+='<p>'+inline(line)+'</p>'}
+    });
+    close();
+  });
+  return html;
+}
+function setVia(el,model){let v=el.querySelector('.via');if(!v){v=document.createElement('span');v.className='via';el.append(v)}v.textContent='via '+model}
+function setSamText(el,text){
+  let body=el.querySelector('.md');
+  if(!body){body=document.createElement('div');body.className='md';el.append(body)}
+  body.innerHTML=renderMarkdown(text);
+  body.querySelectorAll('.copy').forEach(b=>b.onclick=()=>{navigator.clipboard.writeText(b.nextElementSibling.textContent);b.textContent='Copied!';setTimeout(()=>b.textContent='Copy',1200)});
+}
+function addMsg(text,who,imageUrl=null,model=null){const el=document.createElement('div');el.className='msg '+who;if(who==='sam'){const l=document.createElement('span');l.className='label';l.textContent='SAM';el.append(l)}if(imageUrl){const img=document.createElement('img');img.src=imageUrl;img.alt='Attached photo';img.style.cssText='display:block;max-width:240px;max-height:240px;object-fit:contain;border-radius:10px;margin-bottom:8px';el.append(img)}if(who==='sam')setSamText(el,text||'');else if(text)el.append(document.createTextNode(text));if(model)setVia(el,model);$('messages').append(el);$('messages').scrollTop=$('messages').scrollHeight;return el}
+
+// Stream a reply from /api/chat and type it out live. Supports Stop.
+let activeController=null;
+function getPick(id,fallback){try{return localStorage.getItem('sam.'+id)||fallback}catch{return fallback}}
+function savePick(id,v){try{localStorage.setItem('sam.'+id,v)}catch{}}
+async function loadModels(){
+  try{
+    const d=await api('/api/models');const sel=$('modelPick');sel.innerHTML='';
+    d.models.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.label+(m.verified===false?' (unverified)':'');sel.append(o)});
+    const saved=getPick('model','auto');sel.value=[...sel.options].some(o=>o.value===saved)?saved:'auto';
+    $('speedPick').value=getPick('speed','auto');
+  }catch(e){}
+}
+$('modelPick').onchange=e=>savePick('model',e.target.value);
+$('speedPick').onchange=e=>savePick('speed',e.target.value);
+$('stop').onclick=()=>{if(activeController)activeController.abort()};
+function setBusy(b){$('send').classList.toggle('hidden',b);$('stop').classList.toggle('hidden',!b);$('send').disabled=b}
+
+async function streamChat(body){
+  activeController=new AbortController();
+  let r;
+  try{r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,model:$('modelPick').value,speed:$('speedPick').value}),signal:activeController.signal})}
+  catch(e){if(e.name==='AbortError')return {answer:'',streamed:true,stopped:true};throw Error('Can\'t reach Sam\'s server. Check your connection.')}
+  if(r.status===401)throw authExpired();
+  if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));throw Error(d.error||'Something went wrong')}
+  const el=addMsg('','sam');const md=()=>el.querySelector('.md');
+  md().classList.add('typing');md().innerHTML='<span class="status-line">Thinking…</span>';
+  const reader=r.body.getReader();const dec=new TextDecoder();let buf='',answer='',meta={};
+  try{
+    while(true){
+      const {value,done}=await reader.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const events=buf.split('\n\n');buf=events.pop();
+      for(const ev of events){
+        if(!ev.startsWith('data: '))continue;
+        const d=JSON.parse(ev.slice(6));
+        if(d.error)throw Error(d.error);
+        if(d.status&&!answer){md().innerHTML='';const sp=document.createElement('span');sp.className='status-line';sp.textContent=d.status;md().append(sp)}
+        if(d.model)setVia(el,d.model);
+        if(d.delta){answer+=d.delta;setSamText(el,answer);md().classList.add('typing');$('messages').scrollTop=$('messages').scrollHeight}
+        if(d.conversationId)meta={...meta,conversationId:d.conversationId,mode:d.mode};
+        if(d.done)meta={...meta,title:d.title,model:d.model};
+      }
+    }
+  }catch(e){
+    if(e.name==='AbortError'){if(!answer)el.remove();else{answer+='\n\n_(stopped)_';setSamText(el,answer)}return {...meta,answer,streamed:true,stopped:true}}
+    if(!answer)el.remove();throw e;
+  }finally{md()&&md().classList.remove('typing');activeController=null}
+  if(meta.model)setVia(el,meta.model);
+  return {...meta,answer,streamed:true};
+}
 $('attachImage').onclick=()=> $('imageUpload').click();
 
 $('imageUpload').addEventListener('change',showImagePreview);
@@ -165,6 +269,7 @@ compose.addEventListener('drop',e=>{
 
 
 async function send(q){
+  if($('send').disabled)return;
   q=(q||$('prompt').value).trim();
   const file=$('imageUpload').files[0];
   if(!q&&!file)return;
@@ -172,24 +277,25 @@ async function send(q){
   const messageImageUrl=file?URL.createObjectURL(file):null;
   addMsg(file ? (q||'') : q,'user',messageImageUrl);
   if(file)clearImagePreview();
-  $('send').disabled=true;
+  setBusy(true);
   try{
     let d;
     if(file){
       const form=new FormData();
       form.append('image',file);
       form.append('message',q||'Describe this image and explain what is important about it.');
-      form.append('conversationId',currentConversationId||'');
+      form.append('conversationId',currentConversationId||'');form.append('model',$('modelPick').value);
       const r=await fetch('/api/analyse-image',{method:'POST',body:form});
-      d=await r.json();
+      if(r.status===401)throw authExpired();
+      d=await r.json().catch(()=>({}));
       if(!r.ok)throw Error(d.error||'Image analysis failed.');
     }else{
-      d=await api('/api/chat',{method:'POST',body:JSON.stringify({message:q,conversationId:currentConversationId,mode:currentMode})});
+      d=await streamChat({message:q,conversationId:currentConversationId,mode:currentMode});
     }
-    if(d.conversationId)currentConversationId=d.conversationId;if(d.mode)currentMode=d.mode;addMsg(d.answer,'sam');await loadConversations();
-    if(voiceOn)speak(d.answer);
+    if(d.conversationId)currentConversationId=d.conversationId;if(d.mode)currentMode=d.mode;if(!d.streamed)addMsg(d.answer,'sam',null,d.model);await loadConversations();
+    if(voiceOn&&d.answer&&!d.stopped)speak(d.answer);
   }catch(e){addMsg(e.message,'sam')}
-  finally{$('send').disabled=false}
+  finally{setBusy(false)}
 }
 $('send').onclick=()=>send();$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter')send()});document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>send(b.dataset.q));
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===b.dataset.tab));['chat','memory','settings'].forEach(n=>$(n+'Section').classList.toggle('active',n===b.dataset.tab));if(b.dataset.tab==='memory')loadMemories()});
@@ -200,7 +306,8 @@ const modeNames = {
   research: "Deep Research",
   vision: "Image & File Analysis",
   image: "Image Generation",
-  coding: "Coding Assistant"
+  coding: "Coding Assistant",
+  council: "Sam Council"
 };
 
 let currentConversationId = null;
@@ -231,7 +338,7 @@ async function openConversation(id) {
   currentMode = d.conversation?.mode || d.mode || "chat";
   $("modeLabel").textContent = (modeNames[currentMode] || "Normal Chat").toUpperCase();
   $("messages").innerHTML = "";
-  (d.messages || []).forEach(m => addMsg(m.content, m.role === "user" ? "user" : "sam"));
+  (d.messages || []).forEach(m => addMsg(m.content, m.role === "user" ? "user" : "sam", null, m.role === "user" ? null : m.model));
   if (!(d.messages || []).length) addMsg("A fresh workspace. What shall we work on?", "sam");
   document.querySelector('[data-tab="chat"]').click();
   await loadConversations();
@@ -279,8 +386,8 @@ document.querySelectorAll("[data-tool]").forEach(b => {
       if (toolPrompts[tool]) $("prompt").value = toolPrompts[tool];
       if (tool === "vision") {
         addMsg("Attach an image using the ＋ button, then ask me to analyse it.", "sam");
-      } else if (tool === "image") {
-        addMsg("This is your Image Generation workspace. Image generation still needs to be connected.", "sam");
+      } else if (tool === "council") {
+        addMsg("**Sam Council** is in session. Each question goes to several AI models, then Sam combines the best of their answers. It's slower and uses more AI credit than normal chat, so save it for questions that matter.", "sam");
       }
       $("prompt").focus();
     } catch (e) { addMsg(e.message, "sam"); }
@@ -303,7 +410,7 @@ async function loadMemories(){try{const d=await api('/api/history');renderMemori
 function renderMemories(items){$('memoryList').innerHTML='';if(!items.length){$('memoryList').textContent='No saved memories yet.';return}items.forEach(m=>{const row=document.createElement('div');row.className='memory';const span=document.createElement('span');span.textContent=m.content;const del=document.createElement('button');del.textContent='Delete';del.onclick=async()=>{await api('/api/memories/'+m.id,{method:'DELETE'});loadMemories()};row.append(span,del);$('memoryList').append(row)})}
 $('saveMemory').onclick=async()=>{try{await api('/api/memories',{method:'POST',body:JSON.stringify({content:$('memoryInput').value})});$('memoryInput').value='';loadMemories()}catch(e){alert(e.message)}};
 $('clearChat').onclick=async()=>{if(!currentConversationId)return;if(confirm('Delete this conversation?')){try{await api('/api/conversations/'+currentConversationId,{method:'DELETE'});await createConversation(currentMode)}catch(e){addMsg(e.message,'sam')}}};
-function speak(text){if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.rate=1.04;u.pitch=1.08;window.speechSynthesis.speak(u)}
+function speak(text){if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();text=text.replace(/```[\s\S]*?```/g,' (code block) ').replace(/[*#`_>]/g,'').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1');const u=new SpeechSynthesisUtterance(text);u.rate=1.04;u.pitch=1.08;window.speechSynthesis.speak(u)}
 $('voiceToggle').onclick=()=>{voiceOn=!voiceOn;$('voiceToggle').textContent='🔊 Voice replies: '+(voiceOn?'ON':'OFF')};$('speakTest').onclick=()=>speak("Hello! I'm Sam. Your circuits are looking fabulous today.");
 $('mic').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Speech recognition is not supported in this browser. Try a recent Chrome browser.');return}recognition=new SR();recognition.lang='en-GB';recognition.onresult=e=>{$('prompt').value=e.results[0][0].transcript};recognition.onerror=()=>alert('Microphone unavailable. Check browser permission.');recognition.start()};
 boot();
