@@ -1,0 +1,29 @@
+# Render Blueprint for Sam. In Render: New → Blueprint → pick this repo.
+# Secrets marked sync:false are entered in the Render dashboard, never committed.
+services:
+  - type: web
+    name: sam-ai
+    runtime: node
+    plan: starter            # a persistent disk needs a paid plan; on free, the database is wiped on every deploy
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /var/data
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+    disk:
+      name: sam-data
+      mountPath: /var/data
+      sizeGB: 1
