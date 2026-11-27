@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Admin — SAM</title>
+<style>
+:root{--bg:#101114;--panel:#191a1f;--line:#30323a;--muted:#9297a2;--text:#eceef2;--ok:#7fd1a0;--warn:#e8c27a;--bad:#f0a0a0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:17px 5vw;border-bottom:1px solid var(--line);background:#141519}
+.brand{font-weight:750;letter-spacing:.16em;display:flex;align-items:center;gap:12px}
+.orb{width:27px;height:27px;border-radius:9px;background:linear-gradient(145deg,#e0e4eb,#697483)}
+a{color:#9cc4ff}
+main{max-width:1200px;margin:auto;padding:26px 22px 60px}
+nav{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
+.tab,button{border:1px solid #373a43;background:#202228;color:#d5d8df;padding:8px 12px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px}
+.tab.active{border-color:#aab3c1;background:#30333b;color:#fff}
+button:hover{border-color:#69717e}
+button.danger{color:var(--bad);border-color:#6b4a4a}
+button:disabled{opacity:.5;cursor:not-allowed}
+.section{display:none}.section.active{display:block}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:22px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.card .k{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.card .v{font-size:24px;font-weight:650;margin-top:6px}
+.card .s{color:var(--muted);font-size:12px;margin-top:3px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid #24262c;vertical-align:top}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid #3a3d46}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.muted{color:var(--muted);font-size:12px}
+input,select{background:#121317;border:1px solid #393c45;border-radius:8px;color:#fff;padding:8px 10px;font:inherit;font-size:13px}
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+pre{white-space:pre-wrap;font-size:11px;color:#b8bcc6;margin:6px 0 0;max-height:220px;overflow:auto}
+.notice{background:#1d2430;border:1px solid #33435a;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+#gate{max-width:520px;margin:80px auto;text-align:center}
+</style>
+</head>
+<body>
+<header><div class="brand"><div class="orb"></div>SAM / ADMIN</div><a href="/">← Back to Sam</a></header>
+<main>
+  <div id="gate" class="muted">Checking access…</div>
+  <div id="app" hidden>
+    <nav>
+      <button class="tab active" data-s="overview">Overview</button>
+      <button class="tab" data-s="users">Users</button>
+      <button class="tab" data-s="usage">Usage &amp; cost</button>
+      <button class="tab" data-s="providers">AI providers</button>
+      <button class="tab" data-s="errors">Errors</button>
+      <button class="tab" data-s="backups">Backups</button>
+    </nav>
+
+    <section id="s-overview" class="section active"><div id="cards" class="cards"></div><div class="muted" id="sysline"></div></section>
+
+    <section id="s-users" class="section">
+      <div class="bar"><input id="userQ" placeholder="Search username…"><button id="userSearch">Search</button><span class="muted" id="userCount"></span></div>
+      <div id="resetBox" class="notice" hidden></div>
+      <div class="panel"><table id="userTable"></table></div>
+    </section>
+
+    <section id="s-usage" class="section">
+      <div class="bar"><select id="usageDays"><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select><span id="usageTotal"></span></div>
+      <p class="muted">Costs are only shown for models you've priced in the <code>MODEL_PRICES</code> env var (USD per 1M input/output tokens). Streamed replies use estimated token counts.</p>
+      <div class="panel"><table id="usageTable"></table></div>
+    </section>
+
+    <section id="s-providers" class="section">
+      <div class="bar"><button id="recheck">Re-check models now</button><span class="muted" id="recheckMsg"></span></div>
+      <div class="panel"><table id="provTable"></table></div>
+    </section>
+
+    <section id="s-errors" class="section">
+      <div class="bar"><button id="reloadErrors">Refresh</button><span class="muted">Newest first. Users see the <b>ref</b> code in their error message.</span></div>
+      <div class="panel"><table id="errTable"></table></div>
+    </section>
+
+    <section id="s-backups" class="section">
+      <div class="bar"><button id="backupNow">Back up now</button><span class="muted" id="backupMsg"></span></div>
+      <p class="muted">Sam also backs up automatically once a day and keeps the newest 14. Backups live on the server at <code id="backupDir"></code> — download important ones somewhere safe too.</p>
+      <div class="panel"><table id="backupTable"></table></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+async function api(url, opts = {}) {
+  const r = await fetch(url, { ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401) { location.href = "/"; throw Error("Not logged in"); }
+  if (!r.ok) throw Error(d.error || "Request failed");
+  return d;
+}
+// Build DOM safely: every value goes in as text, never HTML.
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e[k] = v; else if (v !== undefined && v !== null) e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k !== null && k !== undefined) e.append(k instanceof Node ? k : String(k));
+  return e;
+}
+function table(id, headers, rows) {
+  const t = $(id); t.innerHTML = "";
+  t.append(el("thead", {}, el("tr", {}, headers.map(h => el("th", {}, h)))));
+  const body = el("tbody");
+  if (!rows.length) body.append(el("tr", {}, el("td", { colspan: headers.length, class: "muted" }, "Nothing here yet.")));
+  rows.forEach(r => body.append(el("tr", {}, r.map(c => el("td", {}, c)))));
+  t.append(body);
+}
+const n = x => Number(x || 0).toLocaleString();
+const when = t => t ? new Date(t.replace(" ", "T") + (t.includes("Z") ? "" : "Z")).toLocaleString() : "—";
+const bytes = b => b == null ? "—" : b > 1e6 ? (b / 1e6).toFixed(1) + " MB" : (b / 1e3).toFixed(0) + " KB";
+const card = (k, v, s) => el("div", { class: "card" }, el("div", { class: "k" }, k), el("div", { class: "v" }, v), s ? el("div", { class: "s" }, s) : null);
+
+async function loadOverview() {
+  const o = await api("/api/admin/overview");
+  const c = $("cards"); c.innerHTML = "";
+  const provs = Object.values(o.providers);
+  c.append(
+    card("Users", n(o.users), `${n(o.activeUsers7d)} logged in this week · ${n(o.disabledUsers)} disabled`),
+    card("Chats", n(o.conversations), `${n(o.messages)} messages`),
+    card("AI requests today", n(o.usageToday.requests), `${n(o.usageToday.input_tokens + o.usageToday.output_tokens)} tokens · ${n(o.usageToday.failures)} failed`),
+    card("AI requests (30 days)", n(o.usage30d.requests), `${n(o.usage30d.input_tokens + o.usage30d.output_tokens)} tokens`),
+    card("Errors (24h)", el("span", { class: o.errors24h ? "warn" : "ok" }, n(o.errors24h))),
+    card("AI providers", n(provs.length), provs.map(p => p.label).join(", ") || "None configured!")
+  );
+  $("sysline").textContent = `Database ${bytes(o.dbSizeBytes)} · up ${Math.floor(o.uptimeSeconds / 3600)}h ${Math.floor(o.uptimeSeconds % 3600 / 60)}m · Node ${o.node} · Admins: ${o.admins.join(", ")}`;
+  renderProviders(o.providers);
+}
+
+async function loadUsers() {
+  const d = await api("/api/admin/users?q=" + encodeURIComponent($("userQ").value));
+  $("userCount").textContent = `${d.total} user${d.total === 1 ? "" : "s"}`;
+  table("userTable", ["User", "Age", "Joined", "Last login", "Messages", "AI reqs (30d)", "Tokens (30d)", "Status", ""], d.users.map(u => [
+    el("span", {}, u.username, u.isAdmin ? el("span", { class: "pill", style: "margin-left:6px" }, "admin") : null),
+    u.age ?? "—", when(u.created_at), when(u.last_login_at), n(u.messages), n(u.requests30d), n(u.tokens30d),
+    u.disabled ? el("span", { class: "bad" }, "Disabled") : el("span", { class: "ok" }, "Active"),
+    el("span", {},
+      u.isAdmin ? null : el("button", { class: u.disabled ? "" : "danger", onclick: () => toggleUser(u) }, u.disabled ? "Enable" : "Disable"), " ",
+      el("button", { onclick: () => resetLink(u) }, "Reset link"))
+  ]));
+}
+async function toggleUser(u) {
+  if (!u.disabled && !confirm(`Disable ${u.username}? They'll be logged out everywhere and can't log in.`)) return;
+  try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ disabled: !u.disabled }) }); loadUsers(); } catch (e) { alert(e.message); }
+}
+async function resetLink(u) {
+  try {
+    const d = await api(`/api/admin/users/${u.id}/reset-link`, { method: "POST" });
+    const box = $("resetBox"); box.hidden = false; box.innerHTML = "";
+    const input = el("input", { value: d.url, readonly: "", style: "width:100%;margin:8px 0" });
+    box.append(el("div", {}, `Password reset link for ${u.username} (works once, expires in ${d.expiresInMinutes} minutes). Send it to them privately:`), input,
+      el("button", { onclick: () => { navigator.clipboard.writeText(d.url); } }, "Copy link"));
+    input.select();
+  } catch (e) { alert(e.message); }
+}
+
+async function loadUsage() {
+  const d = await api("/api/admin/usage?days=" + $("usageDays").value);
+  const tot = d.rows.reduce((a, r) => ({ req: a.req + r.requests, tok: a.tok + r.input_tokens + r.output_tokens }), { req: 0, tok: 0 });
+  $("usageTotal").textContent = `${n(tot.req)} requests · ${n(tot.tok)} tokens · priced cost $${d.totalCostUsd.toFixed(2)}` + (d.unpricedRequests ? ` (+${n(d.unpricedRequests)} unpriced requests)` : "");
+  table("usageTable", ["Day", "Provider", "Model", "Requests", "Failed", "Input tokens", "Output tokens", "Cost"], d.rows.map(r => [
+    r.day, r.provider || "—", r.model || "—", n(r.requests), r.failures ? el("span", { class: "bad" }, n(r.failures)) : "0",
+    n(r.input_tokens) + (r.estimated ? "*" : ""), n(r.output_tokens) + (r.estimated ? "*" : ""), r.costUsd == null ? el("span", { class: "muted" }, "not priced") : "$" + r.costUsd.toFixed(4)
+  ]));
+}
+
+function renderProviders(p) {
+  const rows = [];
+  for (const [name, s] of Object.entries(p)) {
+    for (const tier of ["fast", "balanced", "deep"]) {
+      const v = s.verified?.[tier];
+      rows.push([s.label, tier, s.models[tier],
+        v === true ? el("span", { class: "ok" }, "✓ found") : v === false ? el("span", { class: "bad" }, "✗ not found") : el("span", { class: "warn" }, s.reachable === false ? "couldn't list models" : "not checked"),
+        s.replaced?.[tier] ? `replaced "${s.replaced[tier]}"` : "",
+        s.error ? el("span", { class: "bad" }, s.error) : ""]);
+    }
+  }
+  table("provTable", ["Provider", "Tier", "Model", "Status", "Note", "Error"], rows);
+}
+
+async function loadErrors() {
+  const d = await api("/api/admin/errors");
+  table("errTable", ["When", "Ref", "User", "Where", "Message"], d.errors.map(e => [
+    when(e.created_at), el("code", {}, e.request_id || "—"), e.username || "—", e.route || "—",
+    el("details", {}, el("summary", {}, e.message), e.stack ? el("pre", {}, e.stack) : null)
+  ]));
+}
+
+async function loadBackups() {
+  const d = await api("/api/admin/backups");
+  $("backupDir").textContent = d.dir;
+  table("backupTable", ["File", "Size"], d.backups.map(b => [b.file, bytes(b.bytes)]));
+}
+
+const loaders = { overview: loadOverview, users: loadUsers, usage: loadUsage, providers: loadOverview, errors: loadErrors, backups: loadBackups };
+document.querySelectorAll("nav .tab").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav .tab").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll(".section").forEach(s => s.classList.toggle("active", s.id === "s-" + b.dataset.s));
+  loaders[b.dataset.s]().catch(e => alert(e.message));
+});
+$("userSearch").onclick = () => loadUsers().catch(e => alert(e.message));
+$("userQ").onkeydown = e => { if (e.key === "Enter") $("userSearch").click(); };
+$("usageDays").onchange = () => loadUsage().catch(e => alert(e.message));
+$("reloadErrors").onclick = () => loadErrors().catch(e => alert(e.message));
+$("recheck").onclick = async () => {
+  $("recheck").disabled = true; $("recheckMsg").textContent = "Checking each provider…";
+  try { const d = await api("/api/admin/providers/recheck", { method: "POST" }); renderProviders(d.providers); $("recheckMsg").textContent = "Done."; }
+  catch (e) { $("recheckMsg").textContent = e.message; } finally { $("recheck").disabled = false; }
+};
+$("backupNow").onclick = async () => {
+  $("backupNow").disabled = true; $("backupMsg").textContent = "Backing up…";
+  try { const d = await api("/api/admin/backups", { method: "POST" }); $("backupMsg").textContent = "Saved " + d.file; loadBackups(); }
+  catch (e) { $("backupMsg").textContent = e.message; } finally { $("backupNow").disabled = false; }
+};
+
+(async () => {
+  try {
+    const s = await api("/api/status");
+    if (!s.loggedIn) return location.href = "/";
+    if (!s.isAdmin) { $("gate").textContent = "Admins only. Add your username to ADMIN_USERNAMES on the server to get access."; return; }
+    $("gate").hidden = true; $("app").hidden = false;
+    await loadOverview();
+  } catch (e) { $("gate").textContent = e.message; }
+})();
+</script>
+</body>
+</html>

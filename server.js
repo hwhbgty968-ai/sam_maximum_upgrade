@@ -6,10 +6,14 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const path = require("path");
 const multer = require("multer");
+const crypto = require("crypto");
 
 const { db, DB_PATH, getSessionSecret, findUserByUsername, usernameTaken, logUsage } = require("./lib/db");
 const ai = require("./lib/ai");
 const { buildWebContext } = require("./lib/search");
+const admin = require("./lib/admin");
+const accounts = require("./lib/accounts");
+const { log, logError } = require("./lib/log");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +22,7 @@ const MODES = ["chat", "web", "research", "vision", "image", "coding", "council"
 
 ai.init();
 ai.verifyModels().catch(e => console.warn("[sam] model check failed:", e.message));
+admin.syncAdminRoles();
 
 // Behind Render/Heroku/etc. the app sits behind a proxy. Without this, secure cookies are never
 // set (everyone gets "Please log in first") and every user shares one rate-limit bucket.
@@ -25,6 +30,24 @@ if (IS_PROD || process.env.TRUST_PROXY) app.set("trust proxy", Number(process.en
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: "40kb" }));
+
+// Every request gets a short ID. It's shown in error messages and stored in the error log,
+// so a user can say "it failed with ref abc123" and you can find exactly what happened.
+app.use((req, res, next) => { req.id = crypto.randomBytes(4).toString("hex"); res.set("X-Request-Id", req.id); next(); });
+
+// CSRF protection: state-changing API calls from a browser must come from Sam's own site.
+// (Cookies are also SameSite=Lax; this is a second layer.)
+const EXTRA_ORIGINS = (process.env.ALLOWED_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
+app.use("/api", (req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const origin = req.get("origin");
+  if (!origin) return next(); // non-browser clients (scripts, the smoke test) don't send Origin
+  let host = null;
+  try { host = new URL(origin).host; } catch {}
+  const expected = req.get("x-forwarded-host") || req.get("host");
+  if (host && (host === expected || EXTRA_ORIGINS.includes(origin))) return next();
+  res.status(403).json({ error: "Cross-site request blocked." });
+});
 
 const SqliteStore = require("better-sqlite3-session-store")(session);
 app.use(session({
@@ -39,7 +62,16 @@ app.use(session({
 
 // Generous per-IP limit (schools/homes share one IP) + strict limits where abuse matters.
 app.use("/api", rateLimit({ windowMs: 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false, message: { error: "Too many attempts. Wait a few minutes and try again." } });
+// Only FAILED attempts count, so normal logins never get blocked but password guessing does.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, limit: Number(process.env.AUTH_FAILS_PER_15MIN) || 30, skipSuccessfulRequests: true,
+  standardHeaders: true, legacyHeaders: false, message: { error: "Too many failed attempts. Wait a few minutes and try again." }
+});
+// Caps new accounts per IP (high enough for a whole class signing up on one school network).
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, limit: Number(process.env.SIGNUPS_PER_HOUR) || 50,
+  standardHeaders: true, legacyHeaders: false, message: { error: "Too many new accounts from this network. Try again later." }
+});
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000, limit: Number(process.env.CHAT_RATE_PER_MIN) || 20,
   keyGenerator: req => "user:" + req.session.userId, standardHeaders: true, legacyHeaders: false,
@@ -51,7 +83,22 @@ const upload = multer({
   fileFilter: (req, file, cb) => cb(null, /^image\/(jpeg|png|webp|gif)$/.test(file.mimetype))
 });
 
-const requireAuth = (req, res, next) => req.session.userId ? next() : res.status(401).json({ error: "Please log in first.", code: "AUTH_REQUIRED" });
+// Checks the account on every request, so disabling, deleting or changing a password takes effect immediately.
+function requireAuth(req, res, next) {
+  const id = req.session.userId;
+  if (!id) return res.status(401).json({ error: "Please log in first.", code: "AUTH_REQUIRED" });
+  const user = db.prepare("SELECT id, username, age, disabled, password_changed_at FROM users WHERE id=?").get(id);
+  const stale = user && (user.password_changed_at || null) !== (req.session.pwAt || null);
+  if (!user || user.disabled || stale) {
+    const code = !user ? "AUTH_REQUIRED" : user.disabled ? "ACCOUNT_DISABLED" : "PASSWORD_CHANGED";
+    return req.session.destroy(() => res.status(401).json({
+      error: code === "ACCOUNT_DISABLED" ? "This account has been disabled." : "Please log in again.", code
+    }));
+  }
+  req.user = user;
+  next();
+}
+const requireAdmin = (req, res, next) => admin.isAdmin(req.user?.username) ? next() : res.status(403).json({ error: "Admins only." });
 
 function startSession(req, user) {
   return new Promise((resolve, reject) => {
@@ -59,6 +106,7 @@ function startSession(req, user) {
       if (err) return reject(err);
       req.session.userId = user.id;
       req.session.username = user.username;
+      req.session.pwAt = user.password_changed_at || null;
       req.session.save(e => (e ? reject(e) : resolve()));
     });
   });
@@ -71,11 +119,13 @@ app.get("/healthz", (req, res) => {
 });
 
 app.get("/api/status", (req, res) => {
-  const user = req.session.userId ? db.prepare("SELECT age, role FROM users WHERE id=?").get(req.session.userId) : null;
-  if (req.session.userId && !user) req.session.destroy(() => {}); // account no longer exists
+  let user = req.session.userId ? db.prepare("SELECT age, disabled, password_changed_at FROM users WHERE id=?").get(req.session.userId) : null;
+  if (user && (user.disabled || (user.password_changed_at || null) !== (req.session.pwAt || null))) user = null;
+  if (req.session.userId && !user) req.session.destroy(() => {});
   const models = ai.listModels();
   res.json({
     loggedIn: !!user,
+    isAdmin: !!user && admin.isAdmin(req.session.username),
     username: user ? req.session.username : null,
     age: user?.age ?? null,
     aiConfigured: ai.isConfigured(),
@@ -85,7 +135,7 @@ app.get("/api/status", (req, res) => {
 });
 
 // ---------------- Accounts ----------------
-app.post("/api/register", authLimiter, async (req, res, next) => {
+app.post("/api/register", registerLimiter, authLimiter, async (req, res, next) => {
   try {
     const username = String(req.body.username || "").trim();
     const password = String(req.body.password || "");
@@ -97,7 +147,8 @@ app.post("/api/register", authLimiter, async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, 12);
     const r = db.prepare("INSERT INTO users(username,password_hash,age,last_login_at) VALUES(?,?,?,CURRENT_TIMESTAMP)").run(username, hash, age);
-    await startSession(req, { id: Number(r.lastInsertRowid), username });
+    if (admin.isAdmin(username)) db.prepare("UPDATE users SET role='admin' WHERE id=?").run(r.lastInsertRowid);
+    await startSession(req, { id: Number(r.lastInsertRowid), username, password_changed_at: null });
     res.json({ ok: true, username, age });
   } catch (e) {
     if (String(e.code).startsWith("SQLITE_CONSTRAINT")) return res.status(409).json({ error: "That username is already taken." });
@@ -111,6 +162,7 @@ app.post("/api/login", authLimiter, async (req, res, next) => {
     const password = String(req.body.password || "");
     const user = findUserByUsername(username);
     if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: "Incorrect username or password." });
+    if (user.disabled) return res.status(403).json({ error: "This account has been disabled. Contact the site admin.", code: "ACCOUNT_DISABLED" });
     await startSession(req, user);
     db.prepare("UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?").run(user.id);
     res.json({ ok: true, username: user.username, age: user.age ?? null });
@@ -179,6 +231,77 @@ app.get("/api/usage", requireAuth, (req, res) => {
      FROM usage_log WHERE user_id=? AND created_at >= datetime('now', ?)`
   ).get(req.session.userId, since);
   res.json({ today: q("-1 day"), last30Days: q("-30 days"), note: "Token counts for streamed replies are estimates." });
+});
+
+// ---------------- Your account ----------------
+const pwOk = pw => typeof pw === "string" && pw.length >= 10 && pw.length <= 200;
+
+app.post("/api/account/password", requireAuth, authLimiter, async (req, res, next) => {
+  try {
+    const { current, next: newPw } = req.body || {};
+    if (!pwOk(newPw)) return res.status(400).json({ error: "New password must be at least 10 characters." });
+    const row = db.prepare("SELECT password_hash FROM users WHERE id=?").get(req.user.id);
+    if (!(await bcrypt.compare(String(current || ""), row.password_hash))) return res.status(400).json({ error: "Your current password is wrong.", code: "WRONG_PASSWORD" });
+    const stamp = accounts.setPasswordHash(req.user.id, await bcrypt.hash(newPw, 12));
+    req.session.pwAt = stamp; // keep THIS device logged in; every other device is signed out
+    req.session.save(() => res.json({ ok: true }));
+  } catch (e) { next(e); }
+});
+
+app.post("/api/reset-password", authLimiter, async (req, res, next) => {
+  try {
+    const { token, password } = req.body || {};
+    if (!pwOk(password)) return res.status(400).json({ error: "Password must be at least 10 characters." });
+    const userId = accounts.consumeResetToken(token);
+    if (!userId) return res.status(400).json({ error: "This reset link is invalid, already used or expired. Ask an admin for a new one." });
+    accounts.setPasswordHash(userId, await bcrypt.hash(password, 12));
+    res.json({ ok: true });
+  } catch (e) { next(e); }
+});
+
+app.get("/api/account/export", requireAuth, (req, res) => {
+  const data = accounts.exportUserData(req.user.id);
+  res.set("Content-Disposition", `attachment; filename="sam-export-${req.user.username}.json"`);
+  res.json(data);
+});
+
+app.delete("/api/account", requireAuth, authLimiter, async (req, res, next) => {
+  try {
+    const row = db.prepare("SELECT password_hash FROM users WHERE id=?").get(req.user.id);
+    if (!(await bcrypt.compare(String(req.body?.password || ""), row.password_hash))) return res.status(400).json({ error: "Password is wrong — account not deleted.", code: "WRONG_PASSWORD" });
+    accounts.deleteUserData(req.user.id);
+    log("info", "account deleted", { requestId: req.id, userId: req.user.id });
+    req.session.destroy(() => { res.clearCookie("sam.sid"); res.json({ ok: true }); });
+  } catch (e) { next(e); }
+});
+
+// ---------------- Admin ----------------
+const adminOnly = [requireAuth, requireAdmin];
+app.get("/api/admin/overview", adminOnly, (req, res) => res.json({ ...admin.overview(), providers: ai.providerStatus(), admins: admin.adminNames() }));
+app.get("/api/admin/users", adminOnly, (req, res) => res.json(admin.listUsers(req.query)));
+app.patch("/api/admin/users/:id", adminOnly, (req, res) => {
+  const id = Number(req.params.id);
+  if (id === req.user.id) return res.status(400).json({ error: "You can't disable your own account." });
+  if (typeof req.body?.disabled !== "boolean") return res.status(400).json({ error: "Send { disabled: true|false }." });
+  if (!admin.setDisabled(id, req.body.disabled)) return res.status(404).json({ error: "User not found." });
+  log("info", "admin changed user", { requestId: req.id, adminId: req.user.id, userId: id, disabled: req.body.disabled });
+  res.json({ ok: true });
+});
+app.post("/api/admin/users/:id/reset-link", adminOnly, (req, res) => {
+  const id = Number(req.params.id);
+  if (!db.prepare("SELECT 1 FROM users WHERE id=?").get(id)) return res.status(404).json({ error: "User not found." });
+  const { token, expiresInMinutes } = accounts.createResetToken(id, req.user.id);
+  // Token goes in the #fragment so it never reaches server logs or other sites via the Referer header.
+  res.json({ url: `${req.protocol}://${req.get("host")}/reset#token=${token}`, expiresInMinutes });
+});
+app.get("/api/admin/usage", adminOnly, (req, res) => res.json(admin.usageReport(req.query.days)));
+app.get("/api/admin/errors", adminOnly, (req, res) => res.json({ errors: admin.recentErrors(req.query.limit) }));
+app.post("/api/admin/providers/recheck", adminOnly, async (req, res, next) => {
+  try { await ai.verifyModels(); res.json({ providers: ai.providerStatus() }); } catch (e) { next(e); }
+});
+app.get("/api/admin/backups", adminOnly, (req, res) => res.json({ backups: admin.listBackups(), dir: admin.BACKUP_DIR }));
+app.post("/api/admin/backups", adminOnly, async (req, res, next) => {
+  try { res.json(await admin.runBackup()); } catch (e) { next(e); }
 });
 
 // ---------------- AI helpers ----------------
@@ -260,7 +383,7 @@ app.post("/api/analyse-image", requireAuth, chatLimiter, (req, res, next) => {
     const title = saveExchange(userId, conversationId, mode, "[Image] " + question, answer, result.model);
     res.json({ answer, conversationId, mode, title, model: result.model, provider: result.provider });
   } catch (err) {
-    console.error("[sam] image analysis error:", err.message);
+    logError({ requestId: req.id, userId: req.session.userId, route: "/api/analyse-image", error: err });
     res.status(502).json({ error: "Sam couldn't analyse that image. Please try again." });
   }
 });
@@ -326,13 +449,13 @@ app.post("/api/chat", requireAuth, chatLimiter, async (req, res, next) => {
       if (partial) saveExchange(userId, conversationId, mode, message, partial + "\n\n_(stopped)_", started?.model);
       return res.end();
     }
-    console.error("[sam] chat error:", e.status || "", e.message);
+    logError({ requestId: req.id, userId, route: "/api/chat", error: e });
     record(userId, mode, started || {}, false);
     const msg = e.status === 401 || e.status === 403
       ? "The AI provider rejected Sam's API key. Check the key in your .env / Render settings."
       : e.status === 429 ? "The AI provider is rate-limiting Sam right now. Try again in a minute."
       : "Sam hit a connection problem talking to the AI. Please try again.";
-    send({ error: msg });
+    send({ error: `${msg} (ref: ${req.id})` });
     res.end();
   }
 });
@@ -340,17 +463,25 @@ app.post("/api/chat", requireAuth, chatLimiter, async (req, res, next) => {
 // Unknown API routes return JSON, not the HTML page (which used to cause confusing errors).
 app.use("/api", (req, res) => res.status(404).json({ error: "Not found." }));
 
+app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
+app.get("/reset", (req, res) => res.sendFile(path.join(__dirname, "public", "reset.html")));
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 // Last-resort error handler: log the details, show the user something friendly.
 app.use((err, req, res, next) => {
-  console.error("[sam] unhandled error:", err);
+  logError({ requestId: req.id, userId: req.session?.userId, route: `${req.method} ${req.path}`, error: err });
   if (res.headersSent) return res.end();
-  res.status(500).json({ error: "Something went wrong on Sam's server. Please try again." });
+  res.status(500).json({ error: `Something went wrong on Sam's server. Please try again. (ref: ${req.id})` });
 });
 
-process.on("unhandledRejection", err => console.error("[sam] unhandled rejection:", err));
+process.on("unhandledRejection", err => logError({ route: "unhandledRejection", error: err }));
+
+// Automatic daily backup (set AUTO_BACKUP=0 to turn off). First one runs an hour after startup.
+if (process.env.AUTO_BACKUP !== "0") {
+  const backup = () => admin.runBackup().then(r => log("info", "auto backup", r)).catch(e => logError({ route: "auto-backup", error: e }));
+  setTimeout(() => { backup(); setInterval(backup, 24 * 60 * 60 * 1000).unref(); }, 60 * 60 * 1000).unref();
+}
 
 app.listen(PORT, () => {
   console.log(`Sam is ready at http://localhost:${PORT}`);
