@@ -18,6 +18,7 @@ nav{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
 .tab.active{border-color:#4cc3e6;background:#16202e;color:#fff}
 button:hover{border-color:#69717e}
 button.danger{color:var(--bad);border-color:#6b4a4a}
+a.btnlink{display:inline-block;border:1px solid #4cc3e6;background:#4cc3e6;color:#06202b;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap}
 button:disabled{opacity:.5;cursor:not-allowed}
 .section{display:none}.section.active{display:block}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:22px}
@@ -78,14 +79,19 @@ pre{white-space:pre-wrap;font-size:11px;color:#b8bcc6;margin:6px 0 0;max-height:
     </section>
 
     <section id="s-backups" class="section">
-      <div class="bar"><button id="backupNow">Back up now</button><span class="muted" id="backupMsg"></span></div>
-      <p class="muted">Sam also backs up automatically once a day and keeps the newest 14. Backups live on the server at <code id="backupDir"></code> — download important ones somewhere safe too.</p>
-      <div class="panel"><table id="backupTable"></table></div>
+      <div class="bar"><a id="backupDownload" class="btnlink" href="/api/admin/backup/download" download>⬇ Download full backup</a><span class="muted">One JSON file with every account, chat, memory and setting. It contains password hashes, so keep it private.</span></div>
+      <p class="muted" id="backupPg" hidden>Sam's database is <b>Postgres</b>, which keeps its own restore history (on Neon's free plan: the last 6 hours). For copies you keep, download a full backup here, or run <code>npm run backup</code> on your computer with <code>DATABASE_URL</code> set. To restore one: <code>npm run restore -- file.json</code> into an empty database.</p>
+      <div id="backupSqlite" hidden>
+        <div class="bar"><button id="backupNow">Back up now</button><span class="muted" id="backupMsg"></span></div>
+        <p class="muted">Sam also copies its SQLite file automatically once a day and keeps the newest 14, on the server at <code id="backupDir"></code>. Download a full backup too, so a copy lives somewhere else.</p>
+        <div class="panel"><table id="backupTable"></table></div>
+      </div>
     </section>
   </div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
+let me = null; // your own user id: you can't disable yourself or change your own role
 async function api(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
   const d = await r.json().catch(() => ({}));
@@ -127,7 +133,7 @@ async function loadOverview() {
     card("Errors (24h)", el("span", { class: o.errors24h ? "warn" : "ok" }, n(o.errors24h))),
     card("AI providers", n(provs.length), provs.map(p => p.label).join(", ") || "None configured!")
   );
-  $("sysline").textContent = `Database ${bytes(o.dbSizeBytes)} · up ${Math.floor(o.uptimeSeconds / 3600)}h ${Math.floor(o.uptimeSeconds % 3600 / 60)}m · Node ${o.node} · Admins: ${o.admins.join(", ")}`;
+  $("sysline").textContent = `Database: ${o.database?.engine === "postgres" ? "Postgres (permanent)" : "SQLite file"}, ${bytes(o.dbSizeBytes)} · up ${Math.floor(o.uptimeSeconds / 3600)}h ${Math.floor(o.uptimeSeconds % 3600 / 60)}m · Node ${o.node} · Admins: ${o.admins.join(", ")}`;
   renderProviders(o.providers);
 }
 
@@ -139,13 +145,20 @@ async function loadUsers() {
     u.age ?? "—", when(u.created_at), when(u.last_login_at), n(u.messages), n(u.requests30d), n(u.tokens30d),
     u.disabled ? el("span", { class: "bad" }, "Disabled") : el("span", { class: "ok" }, "Active"),
     el("span", {},
-      u.isAdmin ? null : el("button", { class: u.disabled ? "" : "danger", onclick: () => toggleUser(u) }, u.disabled ? "Enable" : "Disable"), " ",
+      u.id === me ? el("span", { class: "muted" }, "you") : [
+        el("button", { class: u.disabled ? "" : "danger", onclick: () => toggleUser(u) }, u.disabled ? "Enable" : "Disable"), " ",
+        el("button", { onclick: () => setRole(u) }, u.isAdmin ? "Remove admin" : "Make admin"), " "],
       el("button", { onclick: () => resetLink(u) }, "Reset link"))
   ]));
 }
 async function toggleUser(u) {
   if (!u.disabled && !confirm(`Disable ${u.username}? They'll be logged out everywhere and can't log in.`)) return;
   try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ disabled: !u.disabled }) }); loadUsers(); } catch (e) { alert(e.message); }
+}
+async function setRole(u) {
+  const role = u.isAdmin ? "user" : "admin";
+  if (!confirm(role === "admin" ? `Make ${u.username} an admin? They'll see every user and can change accounts.` : `Remove ${u.username}'s admin rights?`)) return;
+  try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ role }) }); loadUsers(); } catch (e) { alert(e.message); }
 }
 async function resetLink(u) {
   try {
@@ -192,6 +205,7 @@ async function loadErrors() {
 
 async function loadBackups() {
   const d = await api("/api/admin/backups");
+  $("backupPg").hidden = d.engine !== "postgres"; $("backupSqlite").hidden = d.engine === "postgres";
   $("backupDir").textContent = d.dir;
   table("backupTable", ["File", "Size"], d.backups.map(b => [b.file, bytes(b.bytes)]));
 }
@@ -221,8 +235,9 @@ $("backupNow").onclick = async () => {
   try {
     const s = await api("/api/status");
     if (!s.loggedIn) return location.href = "/";
-    if (!s.isAdmin) { $("gate").textContent = "Admins only. Add your username to ADMIN_USERNAMES on the server to get access."; return; }
+    if (!s.isAdmin) { $("gate").textContent = s.adminSetupOpen ? "Sam has no admin yet. In Sam, open Settings → Become admin and enter the setup code from the server logs." : "Admins only. Ask an existing admin to make you one."; return; }
     $("gate").hidden = true; $("app").hidden = false;
+    me = (await api("/api/admin/users?q=" + encodeURIComponent(s.username))).users.find(u => u.username === s.username)?.id ?? null;
     await loadOverview();
   } catch (e) { $("gate").textContent = e.message; }
 })();
