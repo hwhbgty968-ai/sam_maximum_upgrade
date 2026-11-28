@@ -9,11 +9,15 @@ const accounts = require(repo + "/lib/accounts.js");
 
 // Fake network: Open-Meteo and Wikipedia answers, and a record of every URL a plugin called.
 const calls = [];
-let netDown = false;
+let netDown = false, meteoBusy = false;
 plugins._setFetch(async url => {
   calls.push(url);
   if (netDown) throw new Error("network down");
   const json = body => ({ ok: true, status: 200, json: async () => body });
+  if (meteoBusy && /open-meteo/.test(url)) return { ok: false, status: 429, headers: { get: () => "0" }, json: async () => ({}) };
+  if (url.includes("prop=coordinates")) return json({ query: { pages: { 1: { index: 1, title: "Elgin, Moray", coordinates: [{ lat: 57.65, lon: -3.32 }] } } } });
+  if (url.includes("api.met.no")) return json({ properties: { timeseries: [{ time: "2026-11-28T16:00:00Z", data: { instant: { details: { air_temperature: 3.9, relative_humidity: 90, wind_speed: 5 } }, next_1_hours: { summary: { symbol_code: "lightrain" } } } },
+    { time: "2026-11-29T12:00:00Z", data: { instant: { details: { air_temperature: 6.2 } } } }] } });
   if (url.includes("geocoding-api")) return json(/name=Nowhereville/.test(url) ? {} : { results: [{ name: "Elgin", admin1: "Scotland", country: "United Kingdom", latitude: 57.65, longitude: -3.31 }] });
   if (url.includes("api.open-meteo.com")) return json({ current: { time: "2026-11-28T16:00", temperature_2m: 4.1, apparent_temperature: 1.2, relative_humidity_2m: 88, weather_code: 61, wind_speed_10m: 19 },
     daily: { time: ["2026-11-28", "2026-11-29"], weather_code: [61, 3], temperature_2m_max: [5, 6], temperature_2m_min: [1, 2], precipitation_probability_max: [80, 20] } });
@@ -83,6 +87,18 @@ plugins._setFetch(async url => {
     assert.match(block, /Elgin, Scotland, United Kingdom.*light rain, 4.1°C/s);
     const act = await plugins.activityList(u.id);
     assert.deepEqual(act.map(a => [a.plugin_id, a.action, a.detail.slice(0, 5)]), [["weather", "used", "Elgin"], ["weather", "connected", "Accep"]]);
+  });
+
+  await t("weather falls back to Wikipedia coordinates + MET Norway when Open-Meteo rate-limits Ezer", async () => {
+    const u = await user("busy");
+    await plugins.connect(u, "weather", { accept: true });
+    meteoBusy = true; calls.length = 0;
+    const r = await plugins.forMessage(u, "weather in Elgin?");
+    meteoBusy = false;
+    assert.deepEqual(r.used, ["weather"]);
+    assert.match(r.results[0].text, /Elgin, Moray.*light rain, 3.9°C/s);
+    assert.match(r.results[0].source, /MET Norway/);
+    assert.ok(calls.some(c => /api\.met\.no.*lat=57\.650&lon=-3\.320/.test(c)), calls.join("\n"));
   });
 
   await t("wikipedia + calculator; failures are reported, never hidden", async () => {
