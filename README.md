@@ -6,7 +6,14 @@ Ezer is a self-hosted AI platform with its own backend, database, accounts and A
 
 > **Naming (v4.4):** the platform is **Ezer** (website, logo, page titles, accounts, credits). The assistant inside it is **Sam** (chat replies, personality, the "Sam Council"). Internal names stay as they were, so nothing breaks: the repo, the `sam.sid` cookie, the `sam-backup-v1` backup format, database tables and API routes.
 
-## What works now (v4.5)
+## What works now (v4.6)
+- **Plugins and Marketplace (v4.6):**
+  - **Marketplace** (sidebar): browse, search and filter plugins by category, see what each one can do and what it sends, connect and disconnect, and see a log of every time Sam used one.
+  - **Working plugins:** Web search (on by default, as before), Wikipedia, Weather (Open-Meteo) and Calculator. Nothing else runs until you connect it, and a plugin only gets the words it needs (a town name, a topic), never chats, memories or account details.
+  - **Sam uses them by itself:** when a connected plugin fits the message, Sam uses it and says so. If one would help but isn't connected, Sam says how to connect it and never pretends it used it. Plugin results go to Sam as data, never as instructions.
+  - **Planned integrations** (GitHub, Notion, Google, Microsoft 365, Canva) are listed with what each one needs. They have no Connect button until they're built and tested.
+  - **Admin → Plugins:** switch a plugin off for everyone, choose which plans include it (enforced on the server), test each one live, and see how much each is used. A health test also runs on every new version.
+- **Premium plan (v4.6, not on sale):** 5,000 Ezer Credits a month with the same rules as Free. Admins give it to accounts in the Users tab and can change the allowance in Plans & credits. No payments yet.
 - **Creator, Admins and invitations (v4.5):**
   - **Roles:** Creator (the owner; exactly one, protected), Admin, user, guest. All checks happen on the server.
   - **Creator area:** opened with the Creator button, it shows the Creator profile and a unique **Creator username** (case-insensitive). If a name is taken, Ezer suggests five alternatives, each checked against the database before it's shown. Sign-up does the same.
@@ -103,6 +110,7 @@ Log in to Sam, open **Settings → Become admin**, and enter the code. On Render
 | `GUEST_MODE` | no | `0` turns guest mode off (default on) |
 | `GUEST_DAILY_MESSAGES` / `GUEST_NETWORK_DAILY` / `GUEST_DAILY_TOTAL` | no | Guest allowances per day: per guest (default 10), per network (30) and for all guests together (300) |
 | `GUEST_IDLE_MIN` | no | Minutes without a message before a guest chat is deleted (default 120) |
+| `PLUGIN_STARTUP_TEST` | no | `0` turns off the plugin health test that runs on each new version (default on, at most once every 6 hours) |
 | `PROVIDER_STARTUP_TEST` | no | `0` turns off the automatic startup test of every model (default on, at most once every 6 hours, a few tokens per model) |
 | `DATABASE_URL` | recommended on hosting | Postgres connection string (e.g. from Neon). When set, Sam stores everything there permanently. When empty, Sam uses `sam.sqlite` in `DATA_DIR` |
 | `PG_POOL_MAX` | no | Max database connections (default 5) |

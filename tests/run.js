@@ -2,7 +2,7 @@
 const { execFileSync } = require("child_process");
 const path = require("path");
 const repo = path.join(__dirname, "..");
-const files = ["ai", "db", "chats", "library", "admin", "backup", "guests", "credits", "roles"];
+const files = ["ai", "db", "chats", "library", "admin", "backup", "guests", "credits", "roles", "plugins"];
 const engines = ["sqlite", ...(process.env.TEST_PG_URL ? ["postgres"] : [])];
 let failed = 0;
 for (const engine of engines) for (const f of files) {

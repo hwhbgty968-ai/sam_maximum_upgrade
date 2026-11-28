@@ -75,6 +75,11 @@ body.guest .guest-bar{display:flex}
 .creator-hero .handle{font-size:22px;font-weight:700}.creator-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
 .c-card{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--panel)}.c-card h3{margin:0 0 8px;font-size:16px}
 .c-card .row{display:flex;gap:8px;flex-wrap:wrap}.c-card .row .field{flex:1;min-width:160px}
+.mk-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.mk-bar .field{flex:1;min-width:200px}
+.mk-cats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}.mk-cats button{border:1px solid var(--line2);background:transparent;color:var(--text);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer}.mk-cats button.on{border-color:var(--accent);background:var(--panel)}
+.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.mk-card{border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--panel);display:flex;flex-direction:column;gap:6px}
+.mk-card .t{display:flex;gap:10px;align-items:center}.mk-card .ico{font-size:24px}.mk-card h3{margin:0;font-size:15px}.mk-card .st{font-size:12px}.mk-card .st.ok{color:#5fd38d}.mk-card .st.bad{color:#ff8a8a}
+.mk-card ul{margin:4px 0 4px 18px;padding:0;font-size:13px}.mk-card .act{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mk-card.planned{opacity:.8}
 .sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.sugg button{border:1px solid var(--line2);background:transparent;color:var(--text);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer}.sugg button:hover{border-color:var(--accent)}
 .status-pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;border:1px solid var(--line2)}
 .status-pill.pending{color:#f5c451;border-color:#f5c45155}.status-pill.accepted{color:#4ade80;border-color:#4ade8055}.status-pill.expired,.status-pill.revoked{color:var(--muted)}
@@ -325,6 +330,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <nav class="nav" aria-label="Ezer sections">
 <button class="nav-item hidden" id="creatorNav" data-tab="creator"><svg class="ic" aria-hidden="true"><use href="#i-crown"/></svg>Creator</button>
 <button class="nav-item" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Chat history</button>
+<button class="nav-item" data-tab="market"><svg class="ic" aria-hidden="true"><use href="#i-apps"/></svg>Marketplace</button>
 <button class="nav-item" data-tool="research"><svg class="ic" aria-hidden="true"><use href="#i-flask"/></svg>Research</button>
 <button class="nav-item" data-tool="study"><svg class="ic" aria-hidden="true"><use href="#i-school"/></svg>Study &amp; learning</button>
 <button class="nav-item" data-tool="coding"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Coding</button>
@@ -425,6 +431,16 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <div class="c-card"><h3>Admins</h3><div class="c-scroll"><table class="c-table" id="crAdmins"></table></div></div>
 <div class="c-card"><h3>Activity</h3><p class="muted" style="margin-top:0">Every role change, invitation and Creator username change.</p><div class="c-scroll" style="max-height:320px;overflow:auto"><table class="c-table" id="crAudit"></table></div></div>
 </div>
+</section>
+
+<section id="marketSection" class="section page">
+<h2>Marketplace</h2>
+<p class="muted">Plugins Sam can use for you. Nothing runs until you connect it, and you can disconnect any time. Plugins only receive the words they need (like a town name), never your chats or account.</p>
+<div class="mk-bar"><input id="mkSearch" class="field" placeholder="Search plugins" autocomplete="off"><select id="mkShow" class="pick" aria-label="Show"><option value="all">All plugins</option><option value="connected">Connected</option><option value="available">Available now</option><option value="planned">Planned</option></select></div>
+<div id="mkCats" class="mk-cats"></div>
+<div id="mkGrid" class="mk-grid"><p class="muted">Loading…</p></div>
+<h3 style="margin-top:22px">Plugin activity</h3><p class="muted" style="margin-top:0">Every connect, disconnect and time Sam used a plugin, with what was sent.</p>
+<div class="c-scroll" style="max-height:300px;overflow:auto"><table class="c-table" id="mkActivity"></table></div>
 </section>
 
 <section id="historySection" class="section page">
@@ -550,7 +566,7 @@ function renderPlan(){
     d.append(mk('div',null,pl.unlimited?'Unlimited '+name:`${fmtN(pl.monthlyCredits)} ${name} a month`));
     if(pl.unlimited&&pl.topModelDailyMessages)d.append(mk('div','muted',`Top models: ${fmtN(pl.topModelDailyMessages)} message${pl.topModelDailyMessages===1?'':'s'} a day, then standard models (no charge)`));
     cmp.append(d)});
-  box.append(cmp);box.append(mk('p','muted','Paid plans aren\'t on sale yet. For now, Ezer\'s admin can move accounts between plans.'));
+  box.append(cmp);box.append(mk('p','muted','Premium and Max aren\'t on sale yet: payments come later, and nobody is charged. For now, Ezer\'s admin can move accounts between plans.'));
   box.append(mk('h4',null,'Recent activity'));
   if(!c.history.length)box.append(mk('p','muted','Nothing yet.'));
   else{const t=mk('table','plan-table');c.history.slice(0,25).forEach(r=>{const tr=mk('tr');const amt=r.kind==='included'?'included':(r.delta>0?'+':'')+fmtN(r.delta);
@@ -1094,8 +1110,45 @@ async function loadLibrary(){
 }
 $('asSave').onclick=async()=>{$('asMsg').textContent='';try{await api('/api/assistants',{method:'POST',body:JSON.stringify({name:$('asName').value,icon:$('asIcon').value,instructions:$('asInstr').value})});$('asName').value=$('asInstr').value=$('asIcon').value='';$('asMsg').textContent='✅ Saved.';loadLibrary()}catch(e){$('asMsg').textContent=e.message}};
 $('prSave').onclick=async()=>{$('prMsg').textContent='';try{await api('/api/prompts',{method:'POST',body:JSON.stringify({title:$('prTitle').value,body:$('prBody').value})});$('prTitle').value=$('prBody').value='';$('prMsg').textContent='✅ Saved.';loadLibrary()}catch(e){$('prMsg').textContent=e.message}};
+
+// ---- v4.6 Marketplace: consent, plan rules and revocation are enforced by the server ----
+let mkData=null,mkCat='all';
+async function loadMarket(){try{mkData=await api('/api/plugins');renderMarket();loadMarketActivity()}catch(e){$('mkGrid').textContent=e.message}}
+async function loadMarketActivity(){try{const d=await api('/api/plugins/activity');const t=$('mkActivity');t.innerHTML='';const names=Object.fromEntries((mkData?.plugins||[]).map(p=>[p.id,p.name]));
+  if(!d.activity.length){const tr=mk('tr');tr.append(mk('td','muted','Nothing yet.'));t.append(tr);return}
+  d.activity.forEach(a=>{const tr=mk('tr');tr.append(mk('td',null,new Date(a.created_at.replace(' ','T')+'Z').toLocaleString()),mk('td',null,names[a.plugin_id]||a.plugin_id),mk('td',null,{connected:'Connected',disconnected:'Disconnected',used:'Used',failed:'Failed'}[a.action]||a.action),mk('td','muted',a.detail||''));t.append(tr)})}catch(e){}}
+function renderMarket(){
+  if(!mkData)return;const q=$('mkSearch').value.trim().toLowerCase(),show=$('mkShow').value;
+  const cats=$('mkCats');cats.innerHTML='';const used=[...new Set(mkData.plugins.map(p=>p.category))];
+  [['all','All'],...used.map(c=>[c,mkData.categories[c]])].forEach(([id,l])=>{const b=mk('button',mkCat===id?'on':'',l);b.type='button';b.onclick=()=>{mkCat=id;renderMarket()};cats.append(b)});
+  const g=$('mkGrid');g.innerHTML='';
+  const list=mkData.plugins.filter(p=>(mkCat==='all'||p.category===mkCat)&&(!q||(p.name+' '+p.description+' '+p.categoryLabel).toLowerCase().includes(q))&&
+    (show==='all'||(show==='connected'&&p.connected&&p.availability==='available')||(show==='available'&&p.availability==='available')||(show==='planned'&&p.availability==='planned')));
+  if(!list.length)g.append(mk('p','muted','No plugins match.'));
+  list.forEach(p=>{const c=mk('div','mk-card'+(p.availability==='planned'?' planned':''));
+    const t=mk('div','t');t.append(mk('span','ico',p.icon));const tt=mk('div');tt.append(mk('h3',null,p.name),mk('div','muted',p.categoryLabel+' · '+p.provider));t.append(tt);c.append(t);
+    c.append(mk('div',null,p.description));
+    if(p.availability==='planned'){c.append(mk('div','st','Planned — not available yet'));c.append(mk('div','muted',p.requirements));g.append(c);return}
+    let st;if(p.availability==='disabled')st=mk('div','st bad','Switched off by Ezer\'s admin');
+    else if(!p.allowedOnPlan)st=mk('div','st bad','Not included in your plan (available on: '+p.plans.join(', ')+')');
+    else if(p.connected)st=mk('div','st ok','● Connected'+(p.byDefault?' (on by default)':''));else st=mk('div','st','Not connected');
+    c.append(st);
+    if(p.health)c.append(mk('div','st '+(p.health.ok?'':'bad'),p.health.ok?'Last test passed '+new Date(p.health.at).toLocaleString():'Last test failed: '+p.health.error));
+    const det=mk('details');det.append(mk('summary',null,'Permissions & details'));det.append(mk('b',null,'It can:'));const ul=mk('ul');p.permissions.forEach(x=>ul.append(mk('li',null,x)));det.append(ul);
+    if(p.benefits?.length){const ub=mk('ul');p.benefits.forEach(x=>ub.append(mk('li',null,x)));det.append(mk('b',null,'Good for:'),ub)}
+    det.append(mk('div','muted',p.requirements));c.append(det);
+    const act=mk('div','act'),msg=mk('span','muted');
+    if(p.availability==='available'&&p.allowedOnPlan){
+      const b=mk('button',p.connected?'secondary':'primary',p.connected?'Disconnect':'Connect');b.type='button';b.style.padding='7px 14px';
+      b.onclick=async()=>{msg.textContent='';
+        if(!p.connected&&!confirm(`Connect ${p.name}?\n\nIt will be able to:\n• ${p.permissions.join('\n• ')}\n\n${p.requirements}\n\nYou can disconnect any time.`))return;
+        if(p.connected&&!confirm(`Disconnect ${p.name}? Sam will stop using it straight away.`))return;
+        b.disabled=true;try{mkData=await api(`/api/plugins/${p.id}/${p.connected?'disconnect':'connect'}`,{method:'POST',body:JSON.stringify({accept:true})});renderMarket();loadMarketActivity()}catch(e){msg.textContent=e.message;b.disabled=false}};
+      act.append(b)}
+    act.append(msg);c.append(act);g.append(c)})}
+$('mkSearch').oninput=renderMarket;$('mkShow').onchange=renderMarket;
 // ---- v3.4 redesign: sections, welcome, composer toggles, drawer ----
-const SECTIONS=['chat','history','memory','pinned','library','models','settings','creator'];
+const SECTIONS=['chat','history','memory','pinned','library','models','settings','creator','market'];
 let webOn=false,councilToggleOn=false,lastConvs=[];
 function showSection(name){
   if(!SECTIONS.includes(name))name='chat';
@@ -1104,7 +1157,7 @@ function showSection(name){
   $('profileMenu').classList.add('hidden');closeDrawer();
   if(name==='memory')loadMemories();if(name==='pinned')loadPins();if(name==='library'||name==='models')loadLibrary();
   if(name==='settings'){loadSettings();loadCredits()}
-  if(name==='creator')loadCreator();if(name==='history')loadHistoryView();
+  if(name==='creator')loadCreator();if(name==='market')loadMarket();if(name==='history')loadHistoryView();
 }
 function showWelcome(on){$('welcome').hidden=!on;document.querySelector('.quick').classList.toggle('hidden',!on);if(on){renderChips();renderRecent()}}
 function renderChips(){$('chipMemory').textContent='Memory '+(samSettings.useMemories===false?'off':'on');$('chipWeb').textContent='Web '+(webOn?'on':'off');$('chipAuto').textContent=samSettings.autoMode===false?'Auto routing off':'Auto routing'}

@@ -159,6 +159,10 @@ These are extra requirements on top of everything below. The **Stage** column gi
 | **4.2 Guests and age (master-plan Stage 2, without email)** | Guest mode with daily limits, opt-in "save my guest chat", 13+ sign-up | ✅ Done (v4.2). Email verification and password-reset emails wait for a domain |
 | **4.3 Sam Credits (master-plan Stage 9a, no real money)** | Free 1,000/month, published prices, Max "Unlimited Sam Credits" with one published fair-use rule, ledger, admin settings | ✅ Done (v4.3). Payments (Stage 10) only after you approve costs |
 | **4.5 Creator & admin access** | Creator (owner) role, unique Creator usernames with suggestions, Creator-only email invitations for admins, audit log | ✅ Done (v4.5). Invitations send once SMTP settings are added |
+| **4.6 Plugins P1–P2 + Premium** | Plugin framework (consent, plan rules, revocation, activity log, health tests), Marketplace, Web search/Wikipedia/Weather/Calculator plugins Sam uses automatically, Premium plan (not on sale) | ✅ Done (v4.6) |
+| **4.7 Smarter routing (P3)** | Task-based model choice, "Best available" mode, AI Provider Settings page, Council settings (choose models, count, estimated cost) | Next |
+| **4.8 GitHub, then Notion (P4)** | Real integrations with user approval; changes always ask first | After P3 |
+| **Ezer VPN** | Needs paid servers, native apps and a legal review before any build. See the VPN plan | Planning only, needs approval |
 | **4. Research and learning** | Knowledge Base and files, Study Centre, Research Centre with a real search API, Universal Search | Next |
 | **5. Creative and productivity** | Documents and slides, images, voice, tasks and reminders; video is optional | Later |
 | **6. Coding and App Builder** | Coding Assistant, App Builder v1 with live preview; v2 in containers | Later |

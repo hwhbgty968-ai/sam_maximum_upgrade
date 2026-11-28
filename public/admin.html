@@ -58,6 +58,7 @@ textarea.wide{width:100%;min-height:110px;box-sizing:border-box;line-height:1.5}
       <button class="tab" data-s="usage">Usage &amp; cost</button>
       <button class="tab" data-s="providers">AI providers</button>
       <button class="tab" data-s="credits">Plans &amp; credits</button>
+      <button class="tab" data-s="plugins">Plugins</button>
       <button class="tab" data-s="errors">Errors</button>
       <button class="tab" data-s="backups">Backups</button>
     </nav>
@@ -89,6 +90,7 @@ textarea.wide{width:100%;min-height:110px;box-sizing:border-box;line-height:1.5}
       <div class="fieldset"><h3>Names</h3><div class="form-grid">
         <div><label for="cfName">Credit name (shown to members)</label><input id="cfName" maxlength="40"></div>
         <div><label for="cfFreeLabel">Free plan name</label><input id="cfFreeLabel" maxlength="30"></div>
+        <div><label for="cfPremiumLabel">Premium plan name</label><input id="cfPremiumLabel" maxlength="30"></div>
         <div><label for="cfMaxLabel">Max plan name</label><input id="cfMaxLabel" maxlength="30"></div>
       </div></div>
       <div class="fieldset"><h3>Admins</h3>
@@ -97,6 +99,9 @@ textarea.wide{width:100%;min-height:110px;box-sizing:border-box;line-height:1.5}
       <div class="fieldset"><h3>Free plan</h3><div class="form-grid">
         <div><label for="cfFreeCredits">Credits each month (reset on the 1st, no rollover)</label><input id="cfFreeCredits" type="number" min="0"></div>
       </div></div>
+      <div class="fieldset"><h3>Premium plan</h3><div class="form-grid">
+        <div><label for="cfPremiumCredits">Credits each month (reset on the 1st, no rollover)</label><input id="cfPremiumCredits" type="number" min="0"></div>
+      </div><p class="muted">Not on sale yet: give it to accounts in the Users tab. No payment is involved.</p></div>
       <div class="fieldset"><h3>Max plan</h3>
         <div class="checks" style="margin-bottom:10px"><label><input type="checkbox" id="cfMaxUnlimited"> Unlimited credits (no monthly allowance, nothing deducted for included features)</label></div>
         <label>Included features</label><div class="checks" id="cfMaxFeatures"></div>
@@ -119,6 +124,14 @@ textarea.wide{width:100%;min-height:110px;box-sizing:border-box;line-height:1.5}
         <div class="muted" id="cfModelHint" style="margin-top:6px"></div>
       </div>
       <div class="bar"><button id="cfSave">Save settings</button><button id="cfDefaults">Fill in the defaults</button><span class="muted" id="cfMsg"></span></div>
+    </section>
+
+    <section id="s-plugins" class="section">
+      <div class="bar"><button id="plTest">Test every plugin now</button><button id="plSave">Save plugin settings</button><span class="muted" id="plMsg"></span></div>
+      <p class="muted">Members connect plugins themselves in Marketplace (nothing runs until they do; web search starts on, as before). Here you switch a plugin off for everyone or choose which plans include it. Admins with full access can use every plugin.</p>
+      <div class="panel"><table id="plTable"></table></div>
+      <h3>Planned integrations</h3><p class="muted">Shown to members as "Planned". They have no Connect button until they're built and tested.</p>
+      <div class="panel"><table id="plPlanned"></table></div>
     </section>
 
     <section id="s-errors" class="section">
@@ -180,7 +193,7 @@ async function loadOverview() {
     card("AI requests today", n(o.usageToday.requests), `${n(o.usageToday.input_tokens + o.usageToday.output_tokens)} tokens · ${n(o.usageToday.failures)} failed`),
     card("AI requests (30 days)", n(o.usage30d.requests), `${n(o.usage30d.input_tokens + o.usage30d.output_tokens)} tokens`),
     card("Errors (24h)", el("span", { class: o.errors24h ? "warn" : "ok" }, n(o.errors24h))),
-    ...(o.credits ? [card("Credits used this month", n(o.credits.creditsUsed), `${n(o.credits.plans.free || 0)} Free · ${n(o.credits.plans.max || 0)} Max · ${n(o.credits.includedAnswers)} Max answers included`)] : []),
+    ...(o.credits ? [card("Credits used this month", n(o.credits.creditsUsed), `${n(o.credits.plans.free || 0)} Free · ${n(o.credits.plans.premium || 0)} Premium · ${n(o.credits.plans.max || 0)} Max · ${n(o.credits.includedAnswers)} Max answers included`)] : []),
     ...(o.guests ? [card("Guest messages today", o.guests.enabled ? `${n(o.guests.messagesToday)} of ${n(o.guests.dailyTotal)}` : "off", o.guests.enabled ? `${o.guests.perGuest} per guest, ${o.guests.perNetwork} per network · ${n(o.guests.openChats)} open guest chats` : "GUEST_MODE=0")] : []),
     card("AI providers", `${provs.filter(p => p.key !== "invalid").length} of ${provs.length} working`, provs.map(p => p.label + (p.key === "invalid" ? " (key rejected)" : "")).join(", ") || "None configured!")
   );
@@ -190,7 +203,8 @@ async function loadOverview() {
 
 async function loadUsers() {
   const d = await api("/api/admin/users?q=" + encodeURIComponent($("userQ").value));
-  const fullAccess = (creditData || await api("/api/admin/credits/config").catch(() => null))?.config?.adminFullAccess !== false;
+  if (!creditData) creditData = await api("/api/admin/credits/config").catch(() => null);
+  const fullAccess = creditData?.config?.adminFullAccess !== false;
   $("userCount").textContent = `${d.total} user${d.total === 1 ? "" : "s"}`;
   table("userTable", ["User", "Age", "Plan", "Credits used (month)", "Joined", "Last login", "Messages", "AI reqs (30d)", "Status", ""], d.users.map(u => [
     el("span", {}, u.username, u.isOwner ? el("span", { class: "pill", style: "margin-left:6px" }, "Creator") : u.isAdmin ? el("span", { class: "pill", style: "margin-left:6px" }, "admin") : null),
@@ -209,9 +223,9 @@ async function loadUsers() {
 function planSelect(u) {
   const s = el("select", { "aria-label": "Plan for " + u.username, onchange: async e => {
     const plan = e.target.value;
-    if (!confirm(`Change ${u.username} to ${plan === "max" ? "Max" : "Free"}? No payment is involved.`)) { e.target.value = u.plan; return; }
+    if (!confirm(`Change ${u.username} to ${e.target.selectedOptions[0].textContent}? No payment is involved.`)) { e.target.value = u.plan || "free"; return; }
     try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ plan }) }); loadUsers(); } catch (err) { alert(err.message); e.target.value = u.plan; }
-  } }, el("option", { value: "free" }, "Free"), el("option", { value: "max" }, "Max"));
+  } }, ...Object.entries(creditData?.config?.plans || { free: { label: "Free" }, premium: { label: "Premium" }, max: { label: "Max" } }).map(([id, p]) => el("option", { value: id }, p.label)));
   s.value = u.plan || "free";
   return s;
 }
@@ -311,6 +325,7 @@ let creditData = null;
 function fillCreditForm(c) {
   $("cfName").value = c.creditName; $("cfAdminFull").checked = c.adminFullAccess !== false; $("cfFreeLabel").value = c.plans.free.label; $("cfMaxLabel").value = c.plans.max.label;
   $("cfFreeCredits").value = c.plans.free.monthlyCredits;
+  $("cfPremiumLabel").value = c.plans.premium?.label || "Premium"; $("cfPremiumCredits").value = c.plans.premium?.monthlyCredits ?? 0;
   $("cfMaxUnlimited").checked = c.plans.max.unlimited !== false; $("cfMaxTop").value = c.plans.max.topModelDailyMessages ?? 0; $("cfMaxCredits").value = c.plans.max.monthlyCredits ?? 0;
   $("cfMaxCreditsWrap").hidden = $("cfMaxUnlimited").checked;
   const box = $("cfMaxFeatures"); box.innerHTML = "";
@@ -323,7 +338,7 @@ async function loadCredits() {
   creditData = await api("/api/admin/credits/config");
   const st = creditData.stats;
   $("creditCards").innerHTML = "";
-  $("creditCards").append(card("Credits used this month", n(st.creditsUsed), st.month), card("Free members", n(st.plans.free || 0)), card("Max members", n(st.plans.max || 0), `${n(st.includedAnswers)} answers included this month`));
+  $("creditCards").append(card("Credits used this month", n(st.creditsUsed), st.month), card("Free members", n(st.plans.free || 0)), card("Premium members", n(st.plans.premium || 0)), card("Max members", n(st.plans.max || 0), `${n(st.includedAnswers)} answers included this month`));
   fillCreditForm(creditData.config);
   const priced = creditData.config.costs.models;
   const missing = creditData.models.filter(m => priced[m.model] == null).map(m => `${m.model} (${m.tier}: ${creditData.config.costs[m.tier]})`);
@@ -342,6 +357,7 @@ function readCreditForm() {
     adminFullAccess: $("cfAdminFull").checked,
     plans: {
       free: { label: $("cfFreeLabel").value, monthlyCredits: num("cfFreeCredits") },
+      premium: { label: $("cfPremiumLabel").value, monthlyCredits: num("cfPremiumCredits") },
       max: { label: $("cfMaxLabel").value, unlimited: $("cfMaxUnlimited").checked, eligible: [...$("cfMaxFeatures").querySelectorAll("input:checked")].map(i => i.value),
         topModelDailyMessages: num("cfMaxTop"), monthlyCredits: num("cfMaxCredits") }
     },
@@ -357,7 +373,36 @@ $("cfSave").onclick = async () => {
   catch (e) { $("cfMsg").textContent = e.message; }
 };
 
-const loaders = { overview: loadOverview, users: loadUsers, usage: loadUsage, providers: loadProviders, credits: loadCredits, errors: loadErrors, backups: loadBackups };
+let pluginData = null;
+async function loadPlugins() {
+  pluginData = await api("/api/admin/plugins");
+  const d = pluginData, planIds = Object.keys(d.plans);
+  table("plTable", ["Plugin", "On", ...planIds.map(id => d.plans[id]), "Last test", "Used (30d)", "Members connected", ""], d.plugins.map(p => {
+    const t = d.tests?.results?.[p.id], st = d.stats[p.id] || {};
+    return [
+      el("span", {}, p.icon + " ", el("b", {}, p.name), el("div", { class: "muted" }, p.category + " · " + p.provider)),
+      el("input", { type: "checkbox", "data-on": p.id, ...(d.config.disabled.includes(p.id) ? {} : { checked: "" }) }),
+      ...planIds.map(pl => el("input", { type: "checkbox", "data-plan": pl, "data-id": p.id, ...(d.config.plans[p.id]?.includes(pl) ? { checked: "" } : {}) })),
+      t ? el("span", { class: t.ok ? "ok" : "bad", title: t.at }, t.ok ? `✓ ${t.ms}ms` : "✗ " + t.error) : el("span", { class: "muted" }, "not tested"),
+      `${n(st.used30d)}${st.failed30d ? ` (${n(st.failed30d)} failed)` : ""}`, n(st.connected),
+      el("button", { class: "small", onclick: async ev => { ev.target.disabled = true; try { await api("/api/admin/plugins/test", { method: "POST", body: JSON.stringify({ id: p.id }) }); await loadPlugins(); } catch (e) { alert(e.message); } } }, "Test")
+    ];
+  }));
+  table("plPlanned", ["Integration", "What it needs"], d.planned.map(p => [p.icon + " " + p.name, p.requirements]));
+}
+$("plSave").onclick = async () => {
+  $("plMsg").textContent = "";
+  const disabled = [...document.querySelectorAll("[data-on]")].filter(i => !i.checked).map(i => i.dataset.on), plans = {};
+  for (const p of pluginData.plugins) plans[p.id] = [...document.querySelectorAll(`[data-plan][data-id="${p.id}"]`)].filter(i => i.checked).map(i => i.dataset.plan);
+  try { await api("/api/admin/plugins/config", { method: "PUT", body: JSON.stringify({ config: { disabled, plans } }) }); await loadPlugins(); $("plMsg").textContent = "Saved. Applies to the next message."; } catch (e) { $("plMsg").textContent = e.message; }
+};
+$("plTest").onclick = async () => {
+  $("plTest").disabled = true; $("plMsg").textContent = "Testing every plugin…";
+  try { const d = await api("/api/admin/plugins/test", { method: "POST" }); const r = Object.values(d.tests.results); $("plMsg").textContent = `${r.filter(x => x.ok).length} of ${r.length} plugins passed.`; await loadPlugins(); }
+  catch (e) { $("plMsg").textContent = e.message; } finally { $("plTest").disabled = false; }
+};
+
+const loaders = { plugins: loadPlugins, overview: loadOverview, users: loadUsers, usage: loadUsage, providers: loadProviders, credits: loadCredits, errors: loadErrors, backups: loadBackups };
 document.querySelectorAll("nav .tab").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav .tab").forEach(x => x.classList.toggle("active", x === b));
   document.querySelectorAll(".section").forEach(s => s.classList.toggle("active", s.id === "s-" + b.dataset.s));
