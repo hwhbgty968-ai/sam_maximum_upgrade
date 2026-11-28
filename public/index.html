@@ -401,7 +401,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <div id="autoMenu" class="auto-menu hidden">
 <label for="assistantPick">ASSISTANT</label><select id="assistantPick" class="pick" title="Specialist assistant for this chat"><option value="sam">🤖 Sam</option></select>
 <label for="modelPick">AI MODEL</label><select id="modelPick" class="pick" title="Which AI model answers"><option value="auto">Auto (Sam picks)</option></select>
-<label for="speedPick">SPEED</label><select id="speedPick" class="pick" title="Speed vs depth"><option value="auto">Auto speed</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option></select>
+<label for="speedPick">SPEED</label><select id="speedPick" class="pick" title="Speed vs depth"><option value="auto">Auto speed</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option><option value="best" title="The strongest working model for the task (priced like Deep)">Best available</option></select>
 <button id="autoDone" class="secondary" type="button">Done</button>
 </div></div>
 <button id="councilToggle" class="cbtn" title="Ask several AI models and combine their answers"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg><span class="lbl">Council</span></button>
@@ -483,7 +483,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <div><label for="setPersonality">Sam's personality</label><select id="setPersonality" class="pick"></select></div>
 <div><label for="setStyle">Response style</label><select id="setStyle" class="pick"></select></div>
 <div><label for="setModel">Default AI model</label><select id="setModel" class="pick"></select></div>
-<div><label for="setSpeed">Default speed</label><select id="setSpeed" class="pick"><option value="auto">Auto</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option></select></div>
+<div><label for="setSpeed">Default speed</label><select id="setSpeed" class="pick"><option value="auto">Auto</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option><option value="best" title="The strongest working model for the task (priced like Deep)">Best available</option></select></div>
 </div>
 <label class="check"><input type="checkbox" id="setSimple"> Explain things simply</label>
 <label class="check"><input type="checkbox" id="setAuto"> Auto-detect my task (switch to coding, search, research or tutor help automatically)</label>
@@ -581,7 +581,7 @@ function estimateCredits(){
   if(councilOn()){const ids=councilSelection();return ids.reduce((s,id)=>s+costOf(id),0)+k.balanced+extra}
   const pick=$('modelPick').value,speed=$('speedPick').value;
   if(pick&&pick!=='auto')return costOf(pick)+extra;
-  if(speed&&speed!=='auto'){const m=samModels.find(x=>x.tier===speed);return (m?costOf(m.id):tierCost(speed))+extra}
+  if(speed&&speed!=='auto'){const t=speed==='best'?'deep':speed;const m=samModels.find(x=>x.tier===t);return (m?costOf(m.id):tierCost(t))+extra}
   const all=samModels.map(m=>costOf(m.id));return all.length?[Math.min(...all)+extra,Math.max(...all)+extra]:null;
 }
 function updateCreditHint(){
@@ -711,7 +711,7 @@ async function streamChat(body){
   if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(guestMode&&d.code==='GUEST_REQUIRED'){guestEnded();throw Error(d.error)}if(guestMode&&d.code==='GUEST_LIMIT'){guestInfo={...guestInfo,remaining:0};renderGuestBar()}if(d.code==='NO_CREDITS'||d.code==='NOT_INCLUDED')loadCredits();if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
   const el=addMsg('','sam');const md=()=>el.querySelector('.md');
   md().classList.add('typing');md().innerHTML='<span class="status-line">Thinking…</span>';
-  const reader=r.body.getReader();const dec=new TextDecoder();let buf='',answer='',meta={},fairNote=null;
+  const reader=r.body.getReader();const dec=new TextDecoder();let buf='',answer='',meta={},fairNote=null,routeNotes=[];
   try{
     while(true){
       const {value,done}=await reader.read();if(done)break;
@@ -722,7 +722,7 @@ async function streamChat(body){
         const d=JSON.parse(ev.slice(6));
         if(guestMode&&d.remaining!==undefined){guestInfo={...guestInfo,remaining:d.remaining,limit:d.limit??guestInfo?.limit,hasChat:true};renderGuestBar()}
         if(d.error)throw Error(d.error);
-        if(d.fairUse)fairNote=d.status;
+        if(d.fairUse)fairNote=d.status;if(d.task||d.plugin||d.pluginHint)routeNotes.push(d.status);
         if(d.status&&!answer){md().innerHTML='';const sp=document.createElement('span');sp.className='status-line';sp.textContent=d.status;md().append(sp)}
         if(d.model)setVia(el,d.model);
         if(d.delta){answer+=d.delta;setSamText(el,answer);md().classList.add('typing');$('chatScroll').scrollTop=$('chatScroll').scrollHeight}
@@ -736,6 +736,7 @@ async function streamChat(body){
   }finally{md()&&md().classList.remove('typing');activeController=null}
   if(meta.model)setVia(el,meta.model+creditNote(meta.credits));
   if(fairNote){const n=mk('div','msg-note',fairNote);const v=el.querySelector('.via');v?v.after(n):el.append(n)}
+  if(routeNotes.length){const n=mk('div','msg-note',routeNotes.join(' · '));const v=el.querySelector('.via');v?v.after(n):el.append(n)}
   afterCharge(meta.credits);
   return {...meta,answer,streamed:true,el};
 }
@@ -950,9 +951,14 @@ function renderCouncilPick(){
   const lab=document.createElement('span');lab.textContent='Council members:';box.append(lab);
   const chosen=councilSelection();
   samModels.forEach(m=>{const l=document.createElement('label');const c=document.createElement('input');c.type='checkbox';c.value=m.id;c.checked=chosen.includes(m.id);
-    c.onchange=()=>{const v=[...box.querySelectorAll('input:checked')].map(x=>x.value);if(v.length>4){c.checked=false;alert('Pick up to 4 models.');return}try{localStorage.setItem('sam.council',JSON.stringify(v))}catch{}};
+    c.onchange=()=>{const v=[...box.querySelectorAll('input:checked')].map(x=>x.value);if(v.length>4){c.checked=false;alert('Pick up to 4 models.');return}try{localStorage.setItem('sam.council',JSON.stringify(v))}catch{}updateCreditHint();updateCouncilEst()};
     l.append(c,document.createTextNode(m.label));box.append(l)});
+  const est=mk('span','muted council-est');box.append(est);updateCouncilEst();
 }
+// Council cost/limits shown next to the picker: each member's price + the model that combines the answers.
+function updateCouncilEst(){const est=document.querySelector('#councilPick .council-est');if(!est)return;const n=councilSelection().length;
+  const c=samCredits;let price='';if(c&&!c.plan.unlimited){const e=estimateCredits();if(e!=null)price=` · about ${Array.isArray(e)?e[1]:e} ${c.creditName} per message`}else if(c)price=' · included in your plan';
+  est.textContent=`${n} model${n===1?'':'s'} (max 4) + 1 to combine${price}. Agreement between models isn't proof — Sam won't call an answer verified unless sources back it.`}
 
 function renderMessage(m){
   const who=m.role==='user'?'user':'sam';
@@ -1177,7 +1183,7 @@ function councilOn(){return councilToggleOn||currentMode==='council'}
 function syncToggles(){$('webToggle').classList.toggle('on',webOn);$('councilToggle').classList.toggle('on',councilOn());renderChips();renderCouncilPick();updateCreditHint()}
 $('webToggle').onclick=()=>{webOn=!webOn;syncToggles()};
 $('councilToggle').onclick=()=>{if(currentMode==='council')return;councilToggleOn=!councilToggleOn;syncToggles();if(councilToggleOn)addMsg('🏛 **Council is on**: each question goes to several AI models, then Sam combines the best answer. It\'s slower and uses more AI credit, so turn it off for everyday chat.','sam')};
-function updateAutoLabel(){const m=$('modelPick'),sp=$('speedPick');const opt=m.options[m.selectedIndex];let t=m.value==='auto'?'Auto':(opt?opt.textContent.split('·').pop().trim():'Auto');if(sp.value&&sp.value!=='auto')t+=' · '+sp.value[0].toUpperCase()+sp.value.slice(1);$('autoLabel').textContent=t}
+function updateAutoLabel(){const m=$('modelPick'),sp=$('speedPick');const opt=m.options[m.selectedIndex];let t=m.value==='auto'?'Auto':(opt?opt.textContent.split('·').pop().trim():'Auto');if(sp.value&&sp.value!=='auto')t+=' · '+(sp.value==='best'?'Best available':sp.value[0].toUpperCase()+sp.value.slice(1));$('autoLabel').textContent=t}
 $('autoBtn').onclick=e=>{e.stopPropagation();$('autoMenu').classList.toggle('hidden')};
 $('autoMenu').onclick=e=>e.stopPropagation();
 $('autoDone').onclick=()=>{$('autoMenu').classList.add('hidden');$('prompt').focus()};

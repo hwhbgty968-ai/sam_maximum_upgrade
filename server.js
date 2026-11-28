@@ -444,7 +444,7 @@ app.post("/api/plugins/:id/disconnect", requireAuth, api(async (req, res) => {
 }));
 
 // ---------------- Models & usage ----------------
-app.get("/api/models", requireAuth, (req, res) => res.json({ models: ai.listModels(), speeds: ["auto", "fast", "balanced", "deep"] }));
+app.get("/api/models", requireAuth, (req, res) => res.json({ models: ai.listModels(), speeds: ["auto", "fast", "balanced", "deep", "best"] }));
 
 app.get("/api/usage", requireAuth, wrap(async (req, res) => {
   const q = since => db.get(
@@ -531,6 +531,19 @@ app.put("/api/admin/credits/config", adminOnly, api(async (req, res) => {
   const config = await credits.saveConfig(req.body?.config);
   log("info", "credits settings changed", { by: req.user.username });
   res.json({ config });
+}));
+// AI Provider Settings: switch providers off without deleting keys, and choose who goes first for each task.
+async function loadRouting() { try { const r = await db.get("SELECT value FROM app_settings WHERE key='routing_config'"); ai.setRouting(r ? JSON.parse(r.value) : {}); } catch (e) { logError({ route: "load routing", error: e }); } }
+app.get("/api/admin/routing", adminOnly, wrap(async (req, res) => res.json({ routing: ai.getRouting(), defaults: ai.ROUTING_DEFAULTS, tasks: ai.TASKS,
+  providers: Object.entries(ai.PROVIDERS).map(([id, p]) => ({ id, label: p.label, configured: !!ai.providerStatus()[id], key: ai.providerStatus()[id]?.key || "missing" })), order: (process.env.PROVIDER_ORDER || "gemini,anthropic,openai,deepseek") })));
+app.put("/api/admin/routing", adminOnly, api(async (req, res) => {
+  const routing = ai.validateRouting(req.body?.routing);
+  const working = Object.keys(ai.providerStatus()).filter(p => ai.providerStatus()[p].key !== "invalid" && !routing.disabled.includes(p));
+  if (!working.length) return res.status(400).json({ error: "That would switch off every working provider, so Sam couldn't answer anyone." });
+  await db.run("INSERT INTO app_settings(key,value) VALUES('routing_config',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", JSON.stringify(routing));
+  ai.setRouting(routing);
+  await roles.audit(db, { actorId: req.user.id, action: "routing_config", detail: `off: ${routing.disabled.join(", ") || "none"}` });
+  res.json({ routing: ai.getRouting() });
 }));
 app.get("/api/admin/plugins", adminOnly, wrap(async (req, res) => res.json({ config: await plugins.config(), plans: await planLabels(), tests: await plugins.loadTests(), stats: await plugins.adminStats(),
   plugins: Object.entries(plugins.BUILTIN).map(([id, p]) => ({ id, name: p.name, icon: p.icon, category: plugins.CATEGORIES[p.category], provider: p.provider, permissions: p.permissions, requirements: p.requirements })),
@@ -684,7 +697,9 @@ async function planRoute(userId, { feature, useCouncil = false, councilModels = 
       fairUseNote = fairText;
     }
   } else if (fair.limited && candidates?.[0]?.tier === "deep") {
+    const task = candidates.task;
     candidates = candidates.filter(c => c.tier !== "deep");
+    Object.defineProperty(candidates, "task", { value: task });
     fairUseNote = fairText;
   }
   const quoteCredits = credits.quote(cfg, { feature, candidates, members, chair });
@@ -813,6 +828,10 @@ app.post("/api/chat", requireAuth, chatLimiter, wrap(async (req, res, next) => {
   send({ start: true, conversationId, mode });
   if (auto) send({ auto: auto.label, status: `Auto-selected: ${auto.label}` });
   if (route.fairUseNote) send({ status: route.fairUseNote, fairUse: true });
+  const TASK_SAYS = { coding: "a coding task", writing: "a writing task", reasoning: "a maths/reasoning task", longdoc: "a long document", research: "research" };
+  const pickedSpeed = req.body.speed ?? settings.defaultSpeed;
+  if (!useCouncil && route.candidates?.task && TASK_SAYS[route.candidates.task] && ((req.body.model ?? settings.defaultModel) || "auto") === "auto")
+    send({ status: `${pickedSpeed === "best" ? "Best available" : "Auto"}: treated as ${TASK_SAYS[route.candidates.task]}, so Sam tried ${route.candidates[0]?.model || "the best model"} first.`, task: route.candidates.task });
 
   // Old messages are only replaced once there's a new answer to save (atomic, inside chats.*).
   const save = (answer, modelLabel, meta) => regenerate
@@ -941,6 +960,7 @@ async function main() {
   await roles.ensureOwner();
   await admin.ensureSetupCode();
   ai.loadTestResults(await loadProviderTests());
+  await loadRouting();
   const server = app.listen(PORT, () => {
     console.log(`Sam is ready at http://localhost:${PORT}`);
     console.log(`[sam] database: ${engine === "postgres" ? "Postgres (" + db.location + ") — permanent" : "SQLite file " + db.location}`);

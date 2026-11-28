@@ -31,6 +31,9 @@ docs/                ROADMAP.md, ARCHITECTURE.md
 4. `ai.routeCandidates()` picks the tier (fast, balanced or deep) and builds the try-order: the chosen model, then the same tier on every other usable provider, then the other tiers (`TIER_FALLBACK`). Providers whose key was rejected are left out; models cooling down after a failure go last. `ai.stream()` tries each candidate and only falls back if nothing has been streamed yet. Every failure is classified (`classifyError`: invalid_key, model_not_found, quota, rate_limit, outage, network, bad_request) and recorded in an in-memory health table; `describeFailure` turns the most useful error into a plain message. Live test results (`testProviders`) are stored in `app_settings.provider_tests` so a restart remembers them.
 5. The answer is saved with the model name, and usage is logged.
 
+## Task routing (v4.7)
+`ai.detectTask()` labels a message (chat, coding, writing, reasoning, longdoc, research, images). `routeCandidates()` orders providers by `routing.tasks[task]` and then the normal `PROVIDER_ORDER`. Speed "best" means the deep tier. Admin settings live in `app_settings.routing_config`: `disabled` providers are skipped like a bad key, but their keys are kept.
+
 ## Plugins (v4.6)
 `lib/plugins.js` holds the catalog (built-in plugins with `detect`/`run`/`test`, plus planned integrations that never run), the admin settings (`app_settings.plugins_config`: switched-off plugins and which plans include each), per-user consent (`plugin_connections`) and the log (`plugin_activity`). In `/api/chat`, `plugins.forMessage()` runs only plugins that are connected, switched on and in the user's plan, and adds their results to the system prompt as data. Web search keeps its own path and price but is checked against the same rules. Results of the latest health test live in `app_settings.plugin_tests`.
 

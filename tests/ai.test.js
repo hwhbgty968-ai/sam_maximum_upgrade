@@ -356,5 +356,38 @@ const quiet = { warn: () => {} };
     assert.equal(err, "Gemini took too long to answer. Please try again in a minute.");
   });
 
+  await t("task routing: coding → Claude first, maths → DeepSeek first, chat keeps the normal order; Best available = deep", () => {
+    init({ GEMINI_API_KEY: "g", ANTHROPIC_API_KEY: "a", DEEPSEEK_API_KEY: "d" });
+    ai.setRouting({});
+    assert.equal(ai.detectTask({ message: "fix this ```js\nfoo()```" }), "coding");
+    assert.equal(ai.detectTask({ message: "solve for x: 2x+3=7" }), "reasoning");
+    assert.equal(ai.detectTask({ message: "write a cover letter for a café job" }), "writing");
+    assert.equal(ai.detectTask({ message: "hi" }), "chat");
+    assert.equal(ai.detectTask({ message: "x".repeat(9000) }), "longdoc");
+    let c = ai.routeCandidates({ speed: "balanced", message: "debug this python traceback" });
+    assert.equal(c.task, "coding"); assert.equal(c[0].provider, "anthropic");
+    c = ai.routeCandidates({ speed: "balanced", message: "solve for x: 2x+3=7" });
+    assert.equal(c[0].provider, "deepseek");
+    c = ai.routeCandidates({ speed: "balanced", message: "hello there" });
+    assert.equal(c[0].provider, "gemini");
+    c = ai.routeCandidates({ speed: "best", message: "write me a poem" });
+    assert.deepEqual([c[0].provider, c[0].tier], ["anthropic", "deep"]);
+    assert.ok(c.some(x => x.provider === "gemini"), "other providers stay as backups");
+    c = ai.routeCandidates({ model: "gemini:gemini-3.5-flash", speed: "balanced", message: "debug this python traceback" });
+    assert.equal(c[0].model, "gemini-3.5-flash", "the user's own pick always comes first");
+  });
+
+  await t("admin can switch a provider off (keys kept) and reorder tasks; bad settings rejected", () => {
+    init({ GEMINI_API_KEY: "g", ANTHROPIC_API_KEY: "a" });
+    ai.setRouting({ disabled: ["anthropic"] });
+    assert.ok(ai.routeCandidates({ message: "debug this python traceback" }).every(c => c.provider === "gemini"));
+    assert.equal(ai.listModels().find(m => m.provider === "anthropic").unavailableReason, "Switched off by the admin");
+    ai.setRouting({ tasks: { chat: ["anthropic", "gemini"] } });
+    assert.equal(ai.routeCandidates({ speed: "fast", message: "hello" })[0].provider, "anthropic");
+    assert.throws(() => ai.setRouting({ disabled: ["evilcorp"] }), /Unknown provider/);
+    assert.throws(() => ai.setRouting({ tasks: { coding: ["skynet"] } }), /unknown provider/);
+    ai.setRouting({});
+  });
+
   console.log(`\nai.js: ${pass} passed`);
 })();
