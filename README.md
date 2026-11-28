@@ -158,3 +158,19 @@ If a deploy fails with `was compiled against a different Node.js version`, the b
 - Every database query is scoped to the logged-in user, and the smoke test checks that one user can't read another's chats.
 - Database connections to hosted Postgres use TLS with certificate checks.
 - Still to come: two-factor login and an audit log of admin actions. See the roadmap.
+
+## New Ezer applications (development branch)
+
+The current development branch adds the first working versions of three areas:
+
+- **Productivity Centre v1:** private projects, tasks and notes, scoped to the signed-in account.
+- **App Builder v1:** Sam creates browser-only HTML prototypes; users can save apps, preview them in an isolated sandbox, download HTML, browse versions and restore earlier versions. It does not yet generate server-side backends, databases, authentication or public deployments.
+- **Image Studio v1:** image generation, editing and a private gallery. This requires an OpenAI Images API key with image API access/billing. It is separate from ordinary chat-model access and may incur provider charges.
+
+Creator **Private Mode** is a Creator-only sidebar toggle. It switches to a deeper colour theme and requests a more direct, advanced response style. It is not incognito: conversations are still saved in the normal Ezer history. It does not disable core safety, privacy or security protections. The server independently checks the account's Creator role; Admins and ordinary users cannot activate it.
+
+### Image Studio configuration
+
+Set `EZER_IMAGE_API_KEY` on the server, or use an existing `OPENAI_API_KEY` with Images API access. The default model is `gpt-image-1`; override it with `EZER_IMAGE_MODEL` if needed. On a hosted service, generated image files need persistent storage. For Render, mount a persistent disk and set `EZER_IMAGE_STORAGE_DIR` to a directory on that disk, for example `/var/data/generated-images`. Without persistent storage, image records may remain in the database after the actual files disappear on a deploy or restart.
+
+Image generation is priced in Ezer Credits for non-unlimited plans (default 25 per image; admin-configurable in the credits configuration). Max/Creator inclusion in Ezer Credits does not remove the external image provider's charges or rate limits.
