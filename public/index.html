@@ -94,6 +94,36 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .danger{color:#f0b4b4!important;border-color:#6b4a4a!important}
 .danger-solid{background:#b94a4a!important;border-color:#b94a4a!important;color:#fff!important}
 #settingsSection h4{margin:18px 0 8px;font-size:13px;color:#c6cad2}
+.chat-search{width:100%;margin:2px 0 4px;padding:9px 11px!important;font-size:12px!important}
+.conv-row{position:relative}
+.conv-row .conversation-item{padding-right:34px}
+.conv-menu-btn{position:absolute;right:5px;top:6px;padding:2px 8px!important;font-size:13px;border-radius:6px!important;background:transparent!important;border:1px solid transparent!important;color:#aaa!important;cursor:pointer}
+.conv-menu-btn:hover{border-color:#555!important}
+.conv-menu{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0 4px}
+.conv-menu button{font-size:11px!important;padding:5px 8px!important}
+.list-heading{font-size:10px;letter-spacing:.14em;color:#7d838f;margin:8px 0 2px}
+.msg-actions{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.msg-actions button{font-size:11px;padding:3px 8px;border-radius:6px;background:#1a1b20;border:1px solid #373a43;color:#aeb4bf;cursor:pointer}
+.msg-actions button:hover{border-color:#69717e;color:#fff}
+.msg-actions button.on{color:#f5d27a;border-color:#6b5a2f}
+.user .msg-actions{justify-content:flex-end}
+.md table{border-collapse:collapse;margin:.5em 0;font-size:13px;display:block;overflow-x:auto;max-width:100%}
+.md th,.md td{border:1px solid #3a3d46;padding:5px 9px;text-align:left;vertical-align:top}
+.md th{background:#1d1f25}
+.council-answers{margin-top:8px;border-top:1px solid #33363e;padding-top:6px}
+.council-answers summary{cursor:pointer;color:#aeb7c5;font-size:12px}
+.council-answer{margin:8px 0;padding:8px 10px;border:1px solid #33363e;border-radius:8px;background:#1a1b20}
+.council-answer .who{font-size:10px;letter-spacing:.1em;color:#9cc4ff;margin-bottom:4px}
+.edit-banner{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:#e8c27a;background:#2a2518;border:1px solid #5a4b25;border-radius:8px;padding:6px 10px;margin-bottom:8px}
+.council-pick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:11px;color:#aeb4bf}
+.council-pick label{border:1px solid #373a43;border-radius:20px;padding:4px 9px;cursor:pointer}
+.council-pick input{margin-right:4px;vertical-align:-1px}
+.pin-item{border:1px solid #373a43;border-radius:9px;padding:10px;margin:8px 0;font-size:13px}
+.pin-item .t{color:#9cc4ff;font-size:11px;margin-bottom:4px}
+.pin-item .p{white-space:pre-wrap;color:#d5d8df;max-height:120px;overflow:hidden;margin-bottom:6px}
+.search-hit{display:block;width:100%;text-align:left;padding:8px 10px;border:1px solid #ffffff18;border-radius:9px;background:#ffffff08;color:#ddd;cursor:pointer;font-size:12px;margin-bottom:5px}
+.search-hit b{display:block;font-size:11px;color:#9cc4ff;margin-bottom:3px}
+@media(max-width:760px){.tools .tool-heading,.tools .chat-search,#newChat,#conversationList,#toggleArchived,#clearChat{grid-column:1/-1}.conversation-list{max-height:260px}.msg{max-width:96%}.pickers{flex-wrap:wrap}.chathead{flex-wrap:wrap;gap:6px}.compose{flex-wrap:wrap}.compose #prompt{flex:1 1 60%}}
 .typing:after{content:"▍";animation:blink 1s steps(1) infinite;color:#aeb7c5}
 @keyframes blink{50%{opacity:0}}
 
@@ -123,19 +153,23 @@ button:disabled{opacity:.55;cursor:not-allowed}
 <button data-tool="coding">Coding Assistant</button>
 <button data-tool="council">🏛 Sam Council</button>
 <div class="tool-heading">CHATS</div>
+<input id="chatSearch" class="field chat-search" placeholder="🔍 Search your chats…" autocomplete="off">
 <button id="newChat">＋ New chat</button>
 <div id="conversationList" class="conversation-list"></div>
+<button id="toggleArchived">🗄 Show archived</button>
 <button id="clearChat" data-tool="clear">Delete current chat</button>
 </div></aside>
 <section class="panel chat">
-<div class="tabs"><button class="tab active" data-tab="chat">Chat</button><button class="tab" data-tab="memory">Memory</button><button class="tab" data-tab="settings">Settings</button></div>
+<div class="tabs"><button class="tab active" data-tab="chat">Chat</button><button class="tab" data-tab="memory">Memory</button><button class="tab" data-tab="pinned">📌 Pinned</button><button class="tab" data-tab="settings">Settings</button></div>
 <div id="chatSection" class="section active">
 <div class="chathead"><strong id="modeLabel">NORMAL CHAT</strong><div class="pickers"><select id="modelPick" class="pick" title="Which AI model answers"><option value="auto">Auto (Sam picks)</option></select><select id="speedPick" class="pick" title="Speed vs depth"><option value="auto">⚡ Auto speed</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option></select></div><span id="aiState" class="muted">Checking AI…</span></div>
 <div id="messages" class="messages"><div class="msg sam"><span class="label">SAM</span>Hey, legend! I'm online. Ask me anything — and yes, my joke circuits are fully charged. ⚡</div></div>
+<div id="councilPick" class="council-pick hidden"></div><div id="editBanner" class="edit-banner hidden"><span>✏️ Editing your message — sending replaces it and everything after it.</span><button id="cancelEdit" class="secondary" style="padding:3px 9px">Cancel</button></div>
 <div class="compose"><input type="file" id="imageUpload" accept="image/*" hidden><div id="imagePreview" class="image-preview" hidden><img id="imagePreviewThumb" alt="Selected image"><button type="button" id="removeImage" title="Remove image">×</button></div><button id="attachImage" class="secondary" title="Attach an image">＋</button><input id="prompt" placeholder="Message Sam…" autocomplete="off"><button id="mic" class="secondary" title="Speak">🎙</button><button id="send" class="send">SEND ➜</button><button id="stop" class="stop hidden" title="Stop generating">■ Stop</button></div>
 <div class="quick"><button data-q="Tell me a surprising science fact">Fun fact</button><button data-q="Give me a brain teaser">Brain teaser</button><button data-q="Help me revise a school topic">Revision</button><button data-q="Give me a creative project idea">Creative idea</button></div>
 </div>
 <div id="memorySection" class="section"><h3>Sam's memory bank 🧠</h3><p class="muted">Add notes you want Sam to use in future chats. You control and can delete these notes.</p><div class="row"><input id="memoryInput" class="field" placeholder="e.g. Explain things in simple steps"><button id="saveMemory" class="primary">Save</button></div><div id="memoryList"></div></div>
+<div id="pinnedSection" class="section"><h3>Pinned 📌</h3><p class="muted">Chats and messages you pin stay here — after refreshing, logging out, or on another device.</p><div id="pinnedList"></div></div>
 <div id="settingsSection" class="section"><h3>Sam control room ⚙</h3><p class="muted">Voice uses your browser's built-in speech features. Availability depends on your browser and device.</p><div class="row"><button id="voiceToggle" class="secondary">🔊 Voice replies: OFF</button><button id="speakTest" class="secondary">Test voice</button></div><p class="notice">Microphone input requires browser support and permission. Your microphone is only used when you press the microphone button.</p><hr style="border-color:#ffffff18;margin:20px 0"><h3>Account</h3><p class="muted">Signed in as <strong id="accountName"></strong>. Your chats and memories are stored in the app's SQLite database on its server.</p>
 <p class="muted" id="myUsage"></p>
 <h4>Change password</h4>
@@ -174,19 +208,26 @@ function renderMarkdown(src){
     if(i%2===1){const nl=part.indexOf('\n');const code=nl>-1?part.slice(nl+1):part;html+='<pre><button class="copy">Copy</button><code>'+esc(code.replace(/\n$/,''))+'</code></pre>';return}
     let list=null;
     const close=()=>{if(list){html+='</'+list+'>';list=null}};
-    esc(part).split('\n').forEach(line=>{
-      let m;
+    const lines=esc(part).split('\n');
+    const cells=l=>l.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(c=>inline(c.trim()));
+    for(let i=0;i<lines.length;i++){
+      const line=lines[i];let m;
+      if(/^\s*\|/.test(line)&&/^\s*\|?\s*:?-{3,}/.test(lines[i+1]||'')){ // markdown table
+        close();html+='<table><thead><tr>'+cells(line).map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';i++;
+        while(i+1<lines.length&&/^\s*\|/.test(lines[i+1])){i++;html+='<tr>'+cells(lines[i]).map(c=>'<td>'+c+'</td>').join('')+'</tr>'}
+        html+='</tbody></table>';continue;
+      }
       if(m=line.match(/^\s*[-*•]\s+(.*)/)){if(list!=='ul'){close();html+='<ul>';list='ul'}html+='<li>'+inline(m[1])+'</li>'}
       else if(m=line.match(/^\s*\d+[.)]\s+(.*)/)){if(list!=='ol'){close();html+='<ol>';list='ol'}html+='<li>'+inline(m[1])+'</li>'}
       else if(m=line.match(/^(#{1,3})\s+(.*)/)){close();html+='<h3>'+inline(m[2])+'</h3>'}
       else if(line.trim()===''){close()}
       else{close();html+='<p>'+inline(line)+'</p>'}
-    });
+    }
     close();
   });
   return html;
 }
-function setVia(el,model){let v=el.querySelector('.via');if(!v){v=document.createElement('span');v.className='via';el.append(v)}v.textContent='via '+model}
+function setVia(el,model){let v=el.querySelector('.via');if(!v){v=document.createElement('span');v.className='via';const a=el.querySelector('.msg-actions,.council-answers');a?el.insertBefore(v,a):el.append(v)}v.textContent='via '+model}
 function setSamText(el,text){
   let body=el.querySelector('.md');
   if(!body){body=document.createElement('div');body.className='md';el.append(body)}
@@ -201,7 +242,7 @@ function getPick(id,fallback){try{return localStorage.getItem('sam.'+id)||fallba
 function savePick(id,v){try{localStorage.setItem('sam.'+id,v)}catch{}}
 async function loadModels(){
   try{
-    const d=await api('/api/models');const sel=$('modelPick');sel.innerHTML='';
+    const d=await api('/api/models');samModels=d.models.filter(m=>m.id!=='auto');renderCouncilPick();const sel=$('modelPick');sel.innerHTML='';
     d.models.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.label+(m.verified===false?' (unverified)':'');sel.append(o)});
     const saved=getPick('model','auto');sel.value=[...sel.options].some(o=>o.value===saved)?saved:'auto';
     $('speedPick').value=getPick('speed','auto');
@@ -215,7 +256,7 @@ function setBusy(b){$('send').classList.toggle('hidden',b);$('stop').classList.t
 async function streamChat(body){
   activeController=new AbortController();
   let r;
-  try{r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,model:$('modelPick').value,speed:$('speedPick').value}),signal:activeController.signal})}
+  try{r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,model:$('modelPick').value,speed:$('speedPick').value,...(body.mode==='council'?{councilModels:councilSelection()}:{})}),signal:activeController.signal})}
   catch(e){if(e.name==='AbortError')return {answer:'',streamed:true,stopped:true};throw Error('Can\'t reach Sam\'s server. Check your connection.')}
   if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
   const el=addMsg('','sam');const md=()=>el.querySelector('.md');
@@ -234,15 +275,15 @@ async function streamChat(body){
         if(d.model)setVia(el,d.model);
         if(d.delta){answer+=d.delta;setSamText(el,answer);md().classList.add('typing');$('messages').scrollTop=$('messages').scrollHeight}
         if(d.conversationId)meta={...meta,conversationId:d.conversationId,mode:d.mode};
-        if(d.done)meta={...meta,title:d.title,model:d.model};
+        if(d.done)meta={...meta,title:d.title,model:d.model,userMessageId:d.userMessageId,assistantMessageId:d.assistantMessageId,council:d.meta};
       }
     }
   }catch(e){
-    if(e.name==='AbortError'){if(!answer)el.remove();else{answer+='\n\n_(stopped)_';setSamText(el,answer)}return {...meta,answer,streamed:true,stopped:true}}
+    if(e.name==='AbortError'){if(!answer)el.remove();else{answer+='\n\n_(stopped)_';setSamText(el,answer)}return {...meta,answer,streamed:true,stopped:true,el}}
     if(!answer)el.remove();throw e;
   }finally{md()&&md().classList.remove('typing');activeController=null}
   if(meta.model)setVia(el,meta.model);
-  return {...meta,answer,streamed:true};
+  return {...meta,answer,streamed:true,el};
 }
 $('attachImage').onclick=()=> $('imageUpload').click();
 
@@ -284,8 +325,11 @@ async function send(q){
   const file=$('imageUpload').files[0];
   if(!q&&!file)return;
   $('prompt').value='';
+  let editId=null;
+  if(editingEl&&!file){editId=Number(editingEl.dataset.id);let n=editingEl;while(n){const next=n.nextElementSibling;n.remove();n=next}}
+  stopEditing();
   const messageImageUrl=file?URL.createObjectURL(file):null;
-  addMsg(file ? (q||'') : q,'user',messageImageUrl);
+  const userEl=addMsg(file ? (q||'') : q,'user',messageImageUrl);
   if(file)clearImagePreview();
   setBusy(true);
   try{
@@ -300,15 +344,18 @@ async function send(q){
       if(r.status===401)throw authExpired(d);
       if(!r.ok)throw Error(d.error||'Image analysis failed.');
     }else{
-      d=await streamChat({message:q,conversationId:currentConversationId,mode:currentMode});
+      d=await streamChat({message:q,conversationId:currentConversationId,mode:currentMode,...(editId?{editMessageId:editId}:{})});
     }
-    if(d.conversationId)currentConversationId=d.conversationId;if(d.mode)currentMode=d.mode;if(!d.streamed)addMsg(d.answer,'sam',null,d.model);await loadConversations();
+    if(d.conversationId)currentConversationId=d.conversationId;if(d.mode)currentMode=d.mode;const samEl=d.streamed?d.el:addMsg(d.answer,'sam',null,d.model);
+    if(d.userMessageId)decorate(userEl,{id:d.userMessageId,role:'user',content:file?'[Image] '+(q||''):q});
+    if(d.assistantMessageId&&samEl)decorate(samEl,{id:d.assistantMessageId,role:'assistant',content:d.answer,meta:d.council});
+    refreshRegen();await loadConversations();
     if(voiceOn&&d.answer&&!d.stopped)speak(d.answer);
-  }catch(e){addMsg(e.message,'sam')}
+  }catch(e){if(editId&&currentConversationId)await openConversation(currentConversationId).catch(()=>{});addMsg(e.message,'sam')}
   finally{setBusy(false)}
 }
 $('send').onclick=()=>send();$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter')send()});document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>send(b.dataset.q));
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===b.dataset.tab));['chat','memory','settings'].forEach(n=>$(n+'Section').classList.toggle('active',n===b.dataset.tab));if(b.dataset.tab==='memory')loadMemories()});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===b.dataset.tab));['chat','memory','pinned','settings'].forEach(n=>$(n+'Section').classList.toggle('active',n===b.dataset.tab));if(b.dataset.tab==='memory')loadMemories();if(b.dataset.tab==='pinned')loadPins()});
 
 const modeNames = {
   chat: "Normal Chat",
@@ -323,49 +370,165 @@ const modeNames = {
 let currentConversationId = null;
 let currentMode = "chat";
 
-async function loadConversations() {
-  const d = await api("/api/conversations");
-  const list = $("conversationList");
-  list.innerHTML = "";
-  (d.conversations || []).forEach(c => {
-    const b = document.createElement("button");
-    b.className = "conversation-item" + (String(c.id) === String(currentConversationId) ? " active" : "");
-    const title = document.createElement("span");
-    title.className = "conversation-title";
-    title.textContent = c.title || "New chat";
-    const mode = document.createElement("span");
-    mode.className = "conversation-mode";
-    mode.textContent = modeNames[c.mode] || "Normal Chat";
-    b.append(title, mode);
-    b.onclick = () => openConversation(c.id);
-    list.append(b);
-  });
+let showArchived=false, searchTimer=null, editingEl=null, samModels=[];
+
+function convItem(c){
+  const row=document.createElement('div');row.className='conv-row';
+  const b=document.createElement('button');
+  b.className='conversation-item'+(String(c.id)===String(currentConversationId)?' active':'');
+  const title=document.createElement('span');title.className='conversation-title';title.textContent=(c.pinned?'📌 ':'')+(c.title||'New chat');
+  const mode=document.createElement('span');mode.className='conversation-mode';mode.textContent=modeNames[c.mode]||'Normal Chat';
+  b.append(title,mode);b.onclick=()=>openConversation(c.id);
+  const more=document.createElement('button');more.className='conv-menu-btn';more.title='Chat options';more.textContent='⋯';
+  more.onclick=e=>{e.stopPropagation();const open=row.querySelector('.conv-menu');if(open){open.remove();return}
+    document.querySelectorAll('.conv-menu').forEach(x=>x.remove());
+    const m=document.createElement('div');m.className='conv-menu';
+    const act=(label,fn)=>{const x=document.createElement('button');x.textContent=label;x.onclick=async ev=>{ev.stopPropagation();try{await fn()}catch(err){alert(err.message)}};m.append(x)};
+    act('✎ Rename',async()=>{const t=prompt('Rename chat',c.title);if(t===null)return;await api('/api/conversations/'+c.id,{method:'PATCH',body:JSON.stringify({title:t})});await loadConversations()});
+    act(c.pinned?'Unpin':'📌 Pin',async()=>{await api('/api/conversations/'+c.id,{method:'PATCH',body:JSON.stringify({pinned:!c.pinned})});await loadConversations()});
+    act(c.archived?'Unarchive':'🗄 Archive',async()=>{await api('/api/conversations/'+c.id,{method:'PATCH',body:JSON.stringify({archived:!c.archived})});if(String(c.id)===String(currentConversationId)&&!c.archived)await createConversation('chat');else await loadConversations()});
+    act('🗑 Delete',async()=>{if(!confirm('Delete "'+c.title+'"? This can\'t be undone.'))return;await api('/api/conversations/'+c.id,{method:'DELETE'});if(String(c.id)===String(currentConversationId))await createConversation('chat');else await loadConversations()});
+    row.append(m)};
+  row.append(b,more);return row;
+}
+
+async function loadConversations(){
+  if($('chatSearch').value.trim().length>=2)return runSearch();
+  const d=await api('/api/conversations'+(showArchived?'?archived=1':''));
+  const list=$('conversationList');list.innerHTML='';
+  const convs=d.conversations||[];
+  const heading=t=>{const h=document.createElement('div');h.className='list-heading';h.textContent=t;list.append(h)};
+  if(showArchived){heading('ARCHIVED');if(!convs.length){const p=document.createElement('div');p.className='muted';p.textContent='No archived chats.';list.append(p)}convs.forEach(c=>list.append(convItem(c)));return}
+  const pinned=convs.filter(c=>c.pinned),rest=convs.filter(c=>!c.pinned);
+  if(pinned.length){heading('📌 PINNED');pinned.forEach(c=>list.append(convItem(c)));heading('RECENT')}
+  rest.forEach(c=>list.append(convItem(c)));
+}
+$('toggleArchived').onclick=()=>{showArchived=!showArchived;$('toggleArchived').textContent=showArchived?'← Back to chats':'🗄 Show archived';loadConversations().catch(e=>alert(e.message))};
+
+async function runSearch(){
+  const q=$('chatSearch').value.trim();const list=$('conversationList');
+  const d=await api('/api/search?q='+encodeURIComponent(q));
+  list.innerHTML='';
+  const h=document.createElement('div');h.className='list-heading';h.textContent='RESULTS FOR "'+d.query.toUpperCase()+'"';list.append(h);
+  const hit=(title,text,id)=>{const b=document.createElement('button');b.className='search-hit';const t=document.createElement('b');t.textContent=title;b.append(t,document.createTextNode(text));b.onclick=()=>openConversation(id);list.append(b)};
+  d.conversations.forEach(c=>hit(c.title+(c.archived?' (archived)':''),'Chat title match',c.id));
+  d.messages.forEach(m=>hit(m.title+(m.archived?' (archived)':''),(m.role==='user'?'You: ':'Sam: ')+m.snippet,m.conversationId));
+  if(!d.conversations.length&&!d.messages.length){const p=document.createElement('div');p.className='muted';p.textContent='Nothing found.';list.append(p)}
+}
+$('chatSearch').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>loadConversations().catch(()=>{}),250)};
+
+// ---- message actions: copy, pin, regenerate, edit, council answers ----
+function decorate(el,m){
+  if(!el||!m||!m.id)return;
+  el.dataset.id=m.id;el._raw=m.content||'';
+  el.querySelectorAll('.msg-actions,.council-answers').forEach(x=>x.remove());
+  if(m.meta&&Array.isArray(m.meta.council)&&m.meta.council.length){
+    const det=document.createElement('details');det.className='council-answers';
+    const sum=document.createElement('summary');sum.textContent='Show individual answers ('+m.meta.council.length+' models)'+(m.meta.councilFailed&&m.meta.councilFailed.length?' · '+m.meta.councilFailed.length+' didn\'t answer':'');det.append(sum);
+    m.meta.council.forEach(a=>{const box=document.createElement('div');box.className='council-answer';const who=document.createElement('div');who.className='who';who.textContent=(a.model||'').toUpperCase();const body=document.createElement('div');body.className='md';body.innerHTML=renderMarkdown(a.text||'');box.append(who,body);det.append(box)});
+    el.append(det);
+  }
+  const bar=document.createElement('div');bar.className='msg-actions';
+  const btn=(label,title,fn,cls)=>{const b=document.createElement('button');b.textContent=label;b.title=title;if(cls)b.className=cls;b.onclick=fn;bar.append(b);return b};
+  btn('Copy','Copy this message',e=>{navigator.clipboard.writeText(el._raw);e.target.textContent='Copied!';setTimeout(()=>e.target.textContent='Copy',1200)});
+  const pin=btn(m.pinned?'📌 Pinned':'📌 Pin','Pin this message',async()=>{const on=!pin.classList.contains('on');try{await api('/api/messages/'+el.dataset.id,{method:'PATCH',body:JSON.stringify({pinned:on})});pin.classList.toggle('on',on);pin.textContent=on?'📌 Pinned':'📌 Pin'}catch(err){alert(err.message)}},m.pinned?'on':'');
+  if(m.role==='user'&&!String(m.content).startsWith('[Image]'))btn('✏️ Edit','Edit and resend',()=>startEdit(el));
+  if(m.role!=='user')btn('↻ Regenerate','Ask again for a new answer',()=>regenerate(),'regen');
+  el.append(bar);
+}
+function refreshRegen(){
+  const msgs=[...$('messages').querySelectorAll('.msg')];const last=msgs[msgs.length-1];
+  document.querySelectorAll('.regen').forEach(b=>b.hidden=!(last&&b.closest('.msg')===last));
+}
+function startEdit(el){
+  if($('send').disabled)return;
+  editingEl=el;$('prompt').value=el._raw;$('editBanner').classList.remove('hidden');$('prompt').focus();
+}
+function stopEditing(){editingEl=null;$('editBanner').classList.add('hidden')}
+$('cancelEdit').onclick=()=>{stopEditing();$('prompt').value=''};
+
+async function regenerate(){
+  if($('send').disabled||!currentConversationId)return;
+  const msgs=[...$('messages').querySelectorAll('.msg')];const last=msgs[msgs.length-1];
+  if(last&&last.classList.contains('sam')&&last.dataset.id)last.remove();
+  setBusy(true);
+  try{
+    const d=await streamChat({regenerate:true,conversationId:currentConversationId,mode:currentMode});
+    if(d.assistantMessageId)decorate(d.el,{id:d.assistantMessageId,role:'assistant',content:d.answer,meta:d.council});
+    refreshRegen();await loadConversations();
+    if(voiceOn&&d.answer&&!d.stopped)speak(d.answer);
+  }catch(e){await openConversation(currentConversationId).catch(()=>{});addMsg(e.message,'sam')}
+  finally{setBusy(false)}
+}
+
+// ---- Pinned tab ----
+async function loadPins(){
+  const box=$('pinnedList');box.textContent='Loading…';
+  try{
+    const d=await api('/api/pins');box.innerHTML='';
+    const h=t=>{const x=document.createElement('h4');x.textContent=t;box.append(x)};
+    if(!d.conversations.length&&!d.messages.length){box.textContent='Nothing pinned yet. Use 📌 on a message or the ⋯ menu on a chat.';return}
+    if(d.conversations.length){h('Chats');d.conversations.forEach(c=>{const b=document.createElement('button');b.className='search-hit';b.textContent='📌 '+c.title;b.onclick=()=>openConversation(c.id);box.append(b)})}
+    if(d.messages.length){h('Messages');d.messages.forEach(m=>{
+      const it=document.createElement('div');it.className='pin-item';
+      const t=document.createElement('div');t.className='t';t.textContent=(m.role==='user'?'You':'Sam')+' · '+m.title;
+      const pv=document.createElement('div');pv.className='p';pv.textContent=m.preview;
+      const row=document.createElement('div');row.className='msg-actions';
+      const open=document.createElement('button');open.textContent='Open chat';open.onclick=()=>openConversation(m.conversationId);
+      const un=document.createElement('button');un.textContent='Unpin';un.onclick=async()=>{await api('/api/messages/'+m.id,{method:'PATCH',body:JSON.stringify({pinned:false})});loadPins()};
+      row.append(open,un);it.append(t,pv,row);box.append(it)})}
+  }catch(e){box.textContent=e.message}
+}
+
+// ---- Sam Council: choose who sits on it ----
+function councilSelection(){
+  let saved=null;try{saved=JSON.parse(localStorage.getItem('sam.council')||'null')}catch{}
+  const ids=samModels.map(m=>m.id);
+  const pick=Array.isArray(saved)?saved.filter(x=>ids.includes(x)):[];
+  if(pick.length)return pick;
+  const seen=new Set();return samModels.filter(m=>m.tier==='balanced'&&!seen.has(m.provider)&&seen.add(m.provider)).slice(0,3).map(m=>m.id).concat(samModels.length&&!samModels.some(m=>m.tier==='balanced')?[samModels[0].id]:[]);
+}
+function renderCouncilPick(){
+  const box=$('councilPick');box.innerHTML='';
+  box.classList.toggle('hidden',currentMode!=='council'||!samModels.length);
+  const lab=document.createElement('span');lab.textContent='Council members:';box.append(lab);
+  const chosen=councilSelection();
+  samModels.forEach(m=>{const l=document.createElement('label');const c=document.createElement('input');c.type='checkbox';c.value=m.id;c.checked=chosen.includes(m.id);
+    c.onchange=()=>{const v=[...box.querySelectorAll('input:checked')].map(x=>x.value);if(v.length>4){c.checked=false;alert('Pick up to 4 models.');return}try{localStorage.setItem('sam.council',JSON.stringify(v))}catch{}};
+    l.append(c,document.createTextNode(m.label));box.append(l)});
+}
+
+function renderMessage(m){
+  const who=m.role==='user'?'user':'sam';
+  const el=addMsg(m.content,who,null,who==='user'?null:m.model);
+  decorate(el,m);return el;
 }
 
 async function openConversation(id) {
   const d = await api("/api/conversations/" + id);
   currentConversationId = id;
   currentMode = d.conversation?.mode || d.mode || "chat";
+  stopEditing();
   $("modeLabel").textContent = (modeNames[currentMode] || "Normal Chat").toUpperCase();
   $("messages").innerHTML = "";
-  (d.messages || []).forEach(m => addMsg(m.content, m.role === "user" ? "user" : "sam", null, m.role === "user" ? null : m.model));
+  (d.messages || []).forEach(renderMessage);
   if (!(d.messages || []).length) addMsg("A fresh workspace. What shall we work on?", "sam");
+  refreshRegen();renderCouncilPick();
   document.querySelector('[data-tab="chat"]').click();
   await loadConversations();
 }
 
 async function createConversation(mode = "chat") {
-  const d = await api("/api/conversations", {
-    method: "POST",
-    body: JSON.stringify({ mode })
-  });
+  const d = await api("/api/conversations", { method: "POST", body: JSON.stringify({ mode }) });
   const c = d.conversation || d;
   if (!c.id) throw Error("Sam did not return a new conversation ID.");
   currentConversationId = c.id;
   currentMode = mode;
+  stopEditing();
   $("modeLabel").textContent = (modeNames[mode] || "Normal Chat").toUpperCase();
   $("messages").innerHTML = "";
   addMsg("A new " + (modeNames[mode] || "chat") + " workspace is ready.", "sam");
+  renderCouncilPick();
   document.querySelector('[data-tab="chat"]').click();
   await loadConversations();
 }

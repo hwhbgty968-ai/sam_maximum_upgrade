@@ -19,6 +19,8 @@ This maps the **Sam master plan** (16 sections, 8 stages) onto what exists today
 | Sam Council | ✅ |
 | Switching models without losing context | ✅ History is stored by Sam, not the provider, so any model sees the whole chat |
 | Streaming, Stop, markdown, code copy | ✅ |
+| Chat search, rename, pin, archive; regenerate; edit and resend; copy; pinned messages; tables; mobile layout | ✅ v3.2 |
+| Choosing Council members, viewing individual answers | ✅ v3.2 |
 | Web Search and Deep Research modes | ✅ Basic: uses Google News RSS, so news only |
 | Image understanding | ✅ |
 | User-written memories | ✅ |
@@ -27,6 +29,32 @@ This maps the **Sam master plan** (16 sections, 8 stages) onto what exists today
 | Admin dashboard, roles, account security, error log, automatic backups | ✅ v3.1 |
 
 ---
+
+## Additional advanced features (spec 4)
+These are extra requirements on top of everything below. The **Stage** column gives where each one fits in the build order at the bottom of this file.
+
+| Feature | Status now | Stage | Depends on |
+|---|---|---|---|
+| **Model Marketplace** (discover, compare, connect models) | 🟡 Admin sees each provider's models and status; users pick models | 2 (**v3.3**) | Nothing. "Connecting" a provider means an admin adds its API key on the server; keys are never typed into the browser |
+| **Prompt Library** (reusable prompts, templates, custom instructions) | ❌ | 2 (**v3.3**) | Nothing |
+| **Custom personalities and specialist assistants** | ❌ | 2 (**v3.3**) | Nothing |
+| **Automatic task recognition and tool selection** | 🟡 Keyword search trigger and tier routing | 2 (**v3.3**) for modes that exist; grows as each tool lands | Each tool it routes to (Study Centre, images, slides…) |
+| **File Library** (uploaded and generated files) | ❌ | 3 | Storage decision (disk, or R2/S3 for several servers); file parsers |
+| **Background agents** with progress and notifications | ❌ | 6 | 🏗 Job queue plus a worker process; notifications need push or email (🔌) |
+| **Collaborative workspaces and sharing with friends** | ❌ | 7 | Projects and File Library, a permissions model, and moderation if anything goes public |
+| **App Builder apps get their own web addresses** | ❌ | 5 (v1 static sites), then 5 (v2) | v1: static hosting (Render static sites, Cloudflare Pages, or Sam serving `/apps/<name>`). v2: 🏗 containers. Users' own hosting accounts through OAuth (🔌) |
+| **Advanced admin** (permissions, analytics, cost, health) | ✅ v3.1 basics: roles, users, usage and cost, health, errors | Ongoing | Finer permissions need a roles table; an audit log comes next |
+| **Automated backups, recovery, version history** | ✅ Daily backups plus a manual backup. ✅ Code history in git. ❌ In-app version history and a restore button | 3 | Version history of chats and files lands with the File Library and projects |
+| **Cross-device sync** (desktop, mobile, tablet) | ✅ Everything lives on the server, so any logged-in device sees the same chats, pins and memories | 3 (PWA install), 8 (native apps) | Installable app: a PWA manifest plus a service worker. Native apps need developer accounts |
+| **Safe, tested, reversible self-improvement of Sam** | 🟡 The process exists today: branch → tests → PR → you approve → merge, and `git revert` undoes any change | 5 | Sam proposing its own PRs needs the App Builder's sandbox and a GitHub App. It must **never** auto-merge or auto-deploy to itself |
+| **Integrations marketplace** | ❌ | 3 → 6 | A connector framework (OAuth token storage, per-user permissions, revoke), then one integration at a time: Google, Microsoft, Canva… |
+
+**Dependency chain (simplified):**
+- Settings and personalities and the Prompt Library (v3.3) → the tool router
+- File Library → Study Centre uploads, research documents, Presentation Studio, App Builder projects
+- Connector framework → integrations marketplace → productivity and agents
+- Job worker → background agents → scheduled automations
+- Sandbox → App Builder v2 → Sam improving Sam
 
 ## The master plan, section by section
 
@@ -123,7 +151,7 @@ This maps the **Sam master plan** (16 sections, 8 stages) onto what exists today
 | Stage | Contents | Needs from you |
 |---|---|---|
 | **1. Foundation** | ✅ Login, messaging, multi-model core, admin, account security, error log, backups | Decide on hosting: paid disk or Neon Postgres |
-| **2. Advanced AI** | Personalities and specialist assistants, model browser, smart memory, real web search, research reports, document reading | A search API key (free tier is fine) |
+| **2. Advanced AI** | ✅ v3.2 chat essentials. **Next, v3.3:** Settings Centre, personalities and specialist assistants, Prompt Library, Model Marketplace, automatic mode selection. Then: smart memory, real web search, research reports, document reading | A search API key (free tier is fine) |
 | **3. Education and productivity** | Frontend rebuild, Study Centre, files and projects, tasks, PWA, then Google integrations | A Google Cloud OAuth app |
 | **4. Creative Studio** | Images, presentations, text-to-speech and speech-to-text, then video | Budget for image and video calls |
 | **5. App Builder** | v1 front-end builder with sandboxed preview and GitHub export; v2 full-stack in containers | A container provider for v2 |

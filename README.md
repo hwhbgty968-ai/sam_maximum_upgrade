@@ -2,7 +2,7 @@
 
 Sam is a self-hosted AI assistant platform with its own backend, database, accounts and AI connections. No Base44 credits, no third-party builder.
 
-## What works now (v3.1)
+## What works now (v3.2)
 - **Accounts:** register, log in and log out. Sessions last 30 days. Each user's chats and memories are private to them.
 - **Multi-model AI:** Gemini, Claude, OpenAI and DeepSeek. Add whichever keys you have.
   - Model picker, or **Auto**, which picks a model by task.
@@ -14,6 +14,11 @@ Sam is a self-hosted AI assistant platform with its own backend, database, accou
 - **Web Search / Deep Research:** live news search with source links.
 - **Image analysis:** attach a photo and ask about it.
 - **Coding mode**, markdown formatting, and copy buttons on code blocks.
+- **Chat management:** search all your chats (titles and message text); rename, pin, archive and delete chats; a pinned group at the top of the chat list.
+- **Message actions:** copy any message, pin it, regenerate Sam's last reply, edit and resend your own message. If the AI fails, nothing is lost.
+- **Pinned tab** for pinned chats and messages. Pins survive refresh, log-out and switching devices.
+- **Sam Council:** choose up to 4 member models, and open "Show individual answers" to see what each one said.
+- **Tables** in replies, and a layout that works on phones.
 - **Memories:** notes you write that Sam uses in every chat. You can view and delete them.
 - **Voice:** speech input and spoken replies, using the browser's built-in speech features.
 - **Usage log:** every AI call is recorded. Users can see their own usage in Settings. Streamed token counts are estimates.

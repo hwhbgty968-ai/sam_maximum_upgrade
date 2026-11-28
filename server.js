@@ -13,6 +13,7 @@ const ai = require("./lib/ai");
 const { buildWebContext } = require("./lib/search");
 const admin = require("./lib/admin");
 const accounts = require("./lib/accounts");
+const chats = require("./lib/chats");
 const { log, logError } = require("./lib/log");
 
 const app = express();
@@ -174,32 +175,49 @@ app.post("/api/logout", (req, res) => req.session.destroy(() => { res.clearCooki
 
 // ---------------- Conversations ----------------
 app.get("/api/conversations", requireAuth, (req, res) => {
-  const rows = db.prepare("SELECT id, title, mode, created_at, updated_at FROM conversations WHERE user_id=? ORDER BY updated_at DESC, id DESC").all(req.session.userId);
-  res.json({ conversations: rows });
+  res.json({ conversations: chats.listConversations(req.user.id, { archived: req.query.archived === "1" }) });
 });
 
 app.post("/api/conversations", requireAuth, (req, res) => {
   const mode = MODES.includes(req.body.mode) ? req.body.mode : "chat";
-  const r = db.prepare("INSERT INTO conversations (user_id, title, mode) VALUES (?, 'New chat', ?)").run(req.session.userId, mode);
+  const r = db.prepare("INSERT INTO conversations (user_id, title, mode) VALUES (?, 'New chat', ?)").run(req.user.id, mode);
   res.json({ id: Number(r.lastInsertRowid), title: "New chat", mode });
 });
 
 app.get("/api/conversations/:id", requireAuth, (req, res) => {
-  const conversation = db.prepare("SELECT id, title, mode FROM conversations WHERE id=? AND user_id=?").get(req.params.id, req.session.userId);
-  if (!conversation) return res.status(404).json({ error: "Chat not found." });
-  const messages = db.prepare("SELECT role, content, model, created_at FROM messages WHERE conversation_id=? AND user_id=? ORDER BY id").all(conversation.id, req.session.userId);
-  res.json({ conversation, messages });
+  const c = chats.getConversation(req.user.id, Number(req.params.id));
+  if (!c) return res.status(404).json({ error: "Chat not found." });
+  res.json(c);
+});
+
+// Rename / pin / archive
+app.patch("/api/conversations/:id", requireAuth, (req, res, next) => {
+  try {
+    const c = chats.updateConversation(req.user.id, Number(req.params.id), req.body || {});
+    if (!c) return res.status(404).json({ error: "Chat not found." });
+    res.json({ conversation: c });
+  } catch (e) { e.status === 400 ? res.status(400).json({ error: e.message }) : next(e); }
 });
 
 app.delete("/api/conversations/:id", requireAuth, (req, res) => {
-  const c = db.prepare("SELECT id FROM conversations WHERE id=? AND user_id=?").get(req.params.id, req.session.userId);
+  const c = db.prepare("SELECT id FROM conversations WHERE id=? AND user_id=?").get(req.params.id, req.user.id);
   if (!c) return res.status(404).json({ error: "Chat not found." });
   db.transaction(() => {
-    db.prepare("DELETE FROM messages WHERE conversation_id=? AND user_id=?").run(c.id, req.session.userId);
-    db.prepare("DELETE FROM conversations WHERE id=? AND user_id=?").run(c.id, req.session.userId);
+    db.prepare("DELETE FROM messages WHERE conversation_id=? AND user_id=?").run(c.id, req.user.id);
+    db.prepare("DELETE FROM conversations WHERE id=? AND user_id=?").run(c.id, req.user.id);
   })();
   res.json({ ok: true });
 });
+
+app.get("/api/search", requireAuth, (req, res) => res.json(chats.search(req.user.id, req.query.q)));
+
+app.patch("/api/messages/:id", requireAuth, (req, res) => {
+  if (typeof req.body?.pinned !== "boolean") return res.status(400).json({ error: "Send { pinned: true|false }." });
+  if (!chats.setMessagePinned(req.user.id, Number(req.params.id), req.body.pinned)) return res.status(404).json({ error: "Message not found." });
+  res.json({ ok: true });
+});
+
+app.get("/api/pins", requireAuth, (req, res) => res.json(chats.listPins(req.user.id)));
 
 // ---------------- Memories & history ----------------
 app.get("/api/history", requireAuth, (req, res) => {
@@ -338,17 +356,6 @@ function buildSystemPrompt(userId, mode) {
   ].join("\n");
 }
 
-function saveExchange(userId, conversationId, mode, userText, answer, modelLabel) {
-  const save = db.prepare("INSERT INTO messages(user_id, role, content, conversation_id, mode, model) VALUES(?,?,?,?,?,?)");
-  db.transaction(() => {
-    save.run(userId, "user", userText, conversationId, mode, null);
-    save.run(userId, "assistant", answer, conversationId, mode, modelLabel || null);
-    const title = userText.replace(/^\[Image\]\s*/, "").replace(/\s+/g, " ").slice(0, 40) || "New chat";
-    db.prepare("UPDATE conversations SET title=CASE WHEN title='New chat' THEN ? ELSE title END, updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?").run(title, conversationId, userId);
-  })();
-  return db.prepare("SELECT title FROM conversations WHERE id=? AND user_id=?").get(conversationId, userId)?.title || "Chat";
-}
-
 function record(userId, mode, result, ok = true) {
   logUsage({ userId, provider: result?.provider, model: result?.model, mode, inputTokens: result?.usage?.input, outputTokens: result?.usage?.output, estimated: result?.usage?.estimated, ok });
 }
@@ -380,8 +387,8 @@ app.post("/api/analyse-image", requireAuth, chatLimiter, (req, res, next) => {
     });
     record(userId, mode, result);
     const answer = result.text || "I couldn't analyse that image.";
-    const title = saveExchange(userId, conversationId, mode, "[Image] " + question, answer, result.model);
-    res.json({ answer, conversationId, mode, title, model: result.model, provider: result.provider });
+    const saved = chats.saveExchange(userId, conversationId, mode, "[Image] " + question, answer, result.model);
+    res.json({ answer, conversationId, mode, title: saved.title, model: result.model, provider: result.provider, userMessageId: saved.userMessageId, assistantMessageId: saved.assistantMessageId });
   } catch (err) {
     logError({ requestId: req.id, userId: req.session.userId, route: "/api/analyse-image", error: err });
     res.status(502).json({ error: "Sam couldn't analyse that image. Please try again." });
@@ -389,18 +396,39 @@ app.post("/api/analyse-image", requireAuth, chatLimiter, (req, res, next) => {
 });
 
 // ---------------- Chat (streaming) ----------------
+// Body: { message, conversationId, mode, model, speed,
+//         regenerate?: true            → answer the last user message again
+//         editMessageId?: number       → replace that user message (and everything after it) with `message`
+//         councilModels?: ["provider:model", …] → which models sit on the Sam Council }
 app.post("/api/chat", requireAuth, chatLimiter, async (req, res, next) => {
-  const message = String(req.body.message || "").trim().slice(0, 6000);
-  if (!message) return res.status(400).json({ error: "Type a message first." });
   if (!ai.isConfigured()) return res.status(503).json({ error: "No AI key configured. Add GEMINI_API_KEY (or another provider key) to .env." });
-
-  const userId = req.session.userId;
+  const userId = req.user.id;
   const mode = MODES.includes(req.body.mode) ? req.body.mode : "chat";
   const useCouncil = mode === "council" || req.body.council === true;
+  const regenerate = req.body.regenerate === true;
+  const editId = Number(req.body.editMessageId) || null;
+  if ((regenerate || editId) && !Number(req.body.conversationId)) return res.status(400).json({ error: "Which chat? (conversationId missing)" });
+
   const conversationId = getOrCreateConversation(userId, Number(req.body.conversationId) || null, mode);
   if (!conversationId) return res.status(404).json({ error: "Chat not found." });
 
-  const history = db.prepare("SELECT role,content FROM messages WHERE user_id=? AND conversation_id=? ORDER BY id DESC LIMIT 20").all(userId, conversationId).reverse();
+  let message, historyBefore = null, replaceFromId = null;
+  try {
+    if (regenerate) {
+      const r = chats.prepareRegenerate(userId, conversationId);
+      message = r.message;
+      historyBefore = r.userMessageId;
+    } else {
+      message = String(req.body.message || "").trim().slice(0, 6000);
+      if (!message) return res.status(400).json({ error: "Type a message first." });
+      if (editId) historyBefore = replaceFromId = chats.prepareEdit(userId, conversationId, editId).replaceFromId;
+    }
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return next(e);
+  }
+
+  const history = chats.history(userId, conversationId, { beforeId: historyBefore });
   const wantsSearch = mode === "web" || mode === "research" || /\b(search|look up|google|find online|news)\b/i.test(message);
 
   // Stop calling the AI if the browser disconnects or the user presses Stop.
@@ -411,6 +439,11 @@ app.post("/api/chat", requireAuth, chatLimiter, async (req, res, next) => {
   res.flushHeaders();
   const send = obj => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
   send({ start: true, conversationId, mode });
+
+  // Old messages are only replaced once there's a new answer to save (atomic, inside chats.*).
+  const save = (answer, modelLabel, meta) => regenerate
+    ? chats.saveAssistant(userId, conversationId, mode, answer, modelLabel, meta, { afterUserMessageId: historyBefore })
+    : chats.saveExchange(userId, conversationId, mode, message, answer, modelLabel, meta, { replaceFromId });
 
   let partial = "";
   let started = null;
@@ -429,10 +462,11 @@ app.post("/api/chat", requireAuth, chatLimiter, async (req, res, next) => {
     const onStart = c => { started = c; send({ model: c.model, provider: c.provider }); };
     const onDelta = d => { partial += d; send({ delta: d }); };
 
-    let result;
+    let result, meta = null;
     if (useCouncil) {
-      result = await ai.council({ messages, question: message, signal: controller.signal, onStatus: s => send({ status: s }), onStart, onDelta });
+      result = await ai.council({ messages, question: message, members: req.body.councilModels, signal: controller.signal, onStatus: s => send({ status: s }), onStart, onDelta });
       for (const m of result.members) record(userId, "council-member", m);
+      meta = { council: result.members.map(m => ({ provider: m.provider, model: m.model, text: m.text })), councilFailed: result.failed };
     } else {
       const candidates = ai.routeCandidates({ model: req.body.model, speed: req.body.speed, mode, message });
       result = await ai.stream({ messages, candidates, signal: controller.signal, onStart, onDelta });
@@ -440,13 +474,13 @@ app.post("/api/chat", requireAuth, chatLimiter, async (req, res, next) => {
     record(userId, mode, result);
     const answer = result.text || "My circuits had a tiny wobble — I got an empty reply. Try again?";
     const modelLabel = useCouncil ? `council → ${result.model}` : result.model;
-    const title = saveExchange(userId, conversationId, mode, message, answer, modelLabel);
-    send({ done: true, conversationId, mode, title, model: modelLabel });
+    const saved = save(answer, modelLabel, meta);
+    send({ done: true, conversationId, mode, title: saved.title, model: modelLabel, meta, userMessageId: saved.userMessageId || (regenerate ? historyBefore : undefined), assistantMessageId: saved.assistantMessageId });
     res.end();
   } catch (e) {
     if (controller.signal.aborted) {
       // User pressed Stop: keep whatever was written so far.
-      if (partial) saveExchange(userId, conversationId, mode, message, partial + "\n\n_(stopped)_", started?.model);
+      if (partial) save(partial + "\n\n_(stopped)_", started?.model, null);
       return res.end();
     }
     logError({ requestId: req.id, userId, route: "/api/chat", error: e });
