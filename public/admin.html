@@ -91,6 +91,9 @@ textarea.wide{width:100%;min-height:110px;box-sizing:border-box;line-height:1.5}
         <div><label for="cfFreeLabel">Free plan name</label><input id="cfFreeLabel" maxlength="30"></div>
         <div><label for="cfMaxLabel">Max plan name</label><input id="cfMaxLabel" maxlength="30"></div>
       </div></div>
+      <div class="fieldset"><h3>Admins</h3>
+        <div class="checks"><label><input type="checkbox" id="cfAdminFull"> Admins have full access: no credits taken, no daily top-model limit, every feature, no per-minute message limit</label></div>
+      </div>
       <div class="fieldset"><h3>Free plan</h3><div class="form-grid">
         <div><label for="cfFreeCredits">Credits each month (reset on the 1st, no rollover)</label><input id="cfFreeCredits" type="number" min="0"></div>
       </div></div>
@@ -186,11 +189,12 @@ async function loadOverview() {
 
 async function loadUsers() {
   const d = await api("/api/admin/users?q=" + encodeURIComponent($("userQ").value));
+  const fullAccess = (creditData || await api("/api/admin/credits/config").catch(() => null))?.config?.adminFullAccess !== false;
   $("userCount").textContent = `${d.total} user${d.total === 1 ? "" : "s"}`;
   table("userTable", ["User", "Age", "Plan", "Credits used (month)", "Joined", "Last login", "Messages", "AI reqs (30d)", "Status", ""], d.users.map(u => [
     el("span", {}, u.username, u.isAdmin ? el("span", { class: "pill", style: "margin-left:6px" }, "admin") : null),
     u.age ?? "—",
-    planSelect(u),
+    u.isAdmin && fullAccess ? el("span", {}, planSelect(u), " ", el("span", { class: "pill", title: "Admins have full access: no credits taken, no limits. Their own plan applies if they stop being an admin." }, "full access")) : planSelect(u),
     el("span", {}, n(u.credits_used), " ", el("button", { class: "small", title: "Add or remove credits", onclick: () => adjustCredits(u) }, "±")),
     when(u.created_at), when(u.last_login_at), n(u.messages), n(u.requests30d),
     u.disabled ? el("span", { class: "bad" }, "Disabled") : el("span", { class: "ok" }, "Active"),
@@ -304,7 +308,7 @@ async function loadBackups() {
 
 let creditData = null;
 function fillCreditForm(c) {
-  $("cfName").value = c.creditName; $("cfFreeLabel").value = c.plans.free.label; $("cfMaxLabel").value = c.plans.max.label;
+  $("cfName").value = c.creditName; $("cfAdminFull").checked = c.adminFullAccess !== false; $("cfFreeLabel").value = c.plans.free.label; $("cfMaxLabel").value = c.plans.max.label;
   $("cfFreeCredits").value = c.plans.free.monthlyCredits;
   $("cfMaxUnlimited").checked = c.plans.max.unlimited !== false; $("cfMaxTop").value = c.plans.max.topModelDailyMessages ?? 0; $("cfMaxCredits").value = c.plans.max.monthlyCredits ?? 0;
   $("cfMaxCreditsWrap").hidden = $("cfMaxUnlimited").checked;
@@ -334,6 +338,7 @@ function readCreditForm() {
   const num = id => Number($(id).value);
   return {
     creditName: $("cfName").value,
+    adminFullAccess: $("cfAdminFull").checked,
     plans: {
       free: { label: $("cfFreeLabel").value, monthlyCredits: num("cfFreeCredits") },
       max: { label: $("cfMaxLabel").value, unlimited: $("cfMaxUnlimited").checked, eligible: [...$("cfMaxFeatures").querySelectorAll("input:checked")].map(i => i.value),

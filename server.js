@@ -83,6 +83,7 @@ const registerLimiter = rateLimit({
 });
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000, limit: Number(process.env.CHAT_RATE_PER_MIN) || 20,
+  skip: req => admin.isAdmin(req.user) && credits.adminFullAccessNow(), // admins with full access (the site-wide 300 requests/minute guard still applies)
   keyGenerator: req => "user:" + req.session.userId, standardHeaders: true, legacyHeaders: false,
   message: { error: "You're sending messages very fast — give Sam a few seconds." }
 });
@@ -159,7 +160,7 @@ app.get("/api/status", wrap(async (req, res) => {
 }));
 
 async function planSummary(userId) {
-  try { const s = await credits.summary(userId); return { id: s.plan.id, label: s.plan.label, unlimited: s.plan.unlimited, balance: s.balance, creditName: s.creditName }; }
+  try { const s = await credits.summary(userId); return { id: s.plan.id, label: s.plan.label, unlimited: s.plan.unlimited, fullAccess: s.plan.fullAccess, balance: s.balance, creditName: s.creditName }; }
   catch (e) { logError({ route: "planSummary", userId, error: e }); return null; }
 }
 
@@ -814,6 +815,7 @@ async function main() {
   const secret = await getSessionSecret();
   guests.setSalt(secret); // network addresses are hashed with a secret, so the stored hashes can't be reversed
   setInterval(() => guests.sweep().catch(e => logError({ route: "guest-sweep", error: e })), 5 * 60 * 1000).unref();
+  await credits.config(); // loaded once so the settings are ready for the first request
   credits.releaseStaleHolds().catch(e => logError({ route: "credits-holds", error: e }));
   setInterval(() => credits.releaseStaleHolds().catch(e => logError({ route: "credits-holds", error: e })), 10 * 60 * 1000).unref();
   sessionMiddleware = session({
