@@ -69,6 +69,17 @@ body.guest .guest-bar{display:flex}
 .plan-compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.plan-compare>div{border:1px solid var(--line);border-radius:12px;padding:12px}
 .plan-compare .cur{border-color:var(--accent)}
 .credit-hint{margin-left:6px;color:var(--muted)}
+/* Creator area */
+.creator-hero{display:flex;gap:16px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:18px;padding:18px;background:linear-gradient(135deg,rgba(70,200,240,.12),rgba(162,123,255,.12))}
+.creator-hero .crown{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#46c8f0,#a27bff);color:#0a0e16;font-size:26px;font-weight:800}
+.creator-hero .handle{font-size:22px;font-weight:700}.creator-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:14px}
+.c-card{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--panel)}.c-card h3{margin:0 0 8px;font-size:16px}
+.c-card .row{display:flex;gap:8px;flex-wrap:wrap}.c-card .row .field{flex:1;min-width:160px}
+.sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.sugg button{border:1px solid var(--line2);background:transparent;color:var(--text);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer}.sugg button:hover{border-color:var(--accent)}
+.status-pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;border:1px solid var(--line2)}
+.status-pill.pending{color:#f5c451;border-color:#f5c45155}.status-pill.accepted{color:#4ade80;border-color:#4ade8055}.status-pill.expired,.status-pill.revoked{color:var(--muted)}
+.c-table{width:100%;border-collapse:collapse;font-size:13px}.c-table td,.c-table th{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}.c-table th{color:var(--muted);font-weight:600;font-size:12px}
+.c-scroll{overflow-x:auto}
 .msg-note{font-size:12px;color:var(--muted);margin-top:8px;border-left:3px solid var(--accent);padding-left:8px}
 .keep-guest{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:13px;color:var(--muted)}.keep-guest input{margin-top:2px}
 .sidebar{width:280px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 14px;gap:12px;overflow-y:auto}
@@ -282,6 +293,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
 <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
 <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2-2v-2M9 12h12m-3-3 3 3-3 3"/></symbol>
+<symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 8l4 4 5-7 5 7 4-4-2 11H5z"/></symbol>
 <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 20 6v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol>
 <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M10 12h4"/></symbol>
 </svg>
@@ -289,7 +301,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <div class="auth-card">
 <div class="brand-row"><div class="logo">E</div><div><div class="brand-name">EZER</div><div class="brand-sub">ENDLESS POSSIBILITIES</div></div></div>
 <h2>Welcome to Ezer</h2><p class="tagline">One platform. Endless possibilities.</p><p class="muted">Log in, or create an account to keep your chats, memories and settings. Sam, your AI assistant, is ready when you are.</p>
-<label for="username">Username</label><input id="username" class="field" maxlength="24" autocomplete="username" placeholder="3–24 letters, numbers, _ or -">
+<label for="username">Username</label><input id="username" class="field" maxlength="24" autocomplete="username" placeholder="3–24 letters, numbers, _ or -"><div id="nameSugg" class="sugg"></div>
 <div id="ageField" hidden><label for="age">Age</label><input id="age" class="field" type="number" min="13" max="120" placeholder="Your age (Ezer is for ages 13 and up)"></div>
 <label for="password">Password</label><input id="password" class="field" type="password" autocomplete="current-password" placeholder="At least 10 characters">
 <label id="keepGuestRow" class="keep-guest hidden"><input type="checkbox" id="keepGuest"> <span>Save my guest chat to this account (otherwise it's deleted)</span></label>
@@ -305,11 +317,13 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <button class="profile" id="profileBtn" aria-expanded="false"><span class="avatar" id="avatarInitial">S</span><span style="min-width:0;flex:1"><span class="pname" id="welcomeUser" style="display:block"></span><span class="psub" id="profileSub">Personal account</span></span><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg></button>
 <div id="profileMenu" class="profile-menu hidden">
 <button data-tab="settings"><svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg>Settings</button>
+<button id="creatorLink" class="hidden" data-tab="creator"><svg class="ic" aria-hidden="true"><use href="#i-crown"/></svg>Creator</button>
 <a id="adminLink" class="hidden" href="/admin"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Admin dashboard</a>
 <button id="logout"><svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>Log out</button>
 </div>
 <button id="newChat" class="new-chat"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>New chat</button>
 <nav class="nav" aria-label="Ezer sections">
+<button class="nav-item hidden" id="creatorNav" data-tab="creator"><svg class="ic" aria-hidden="true"><use href="#i-crown"/></svg>Creator</button>
 <button class="nav-item" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Chat history</button>
 <button class="nav-item" data-tool="research"><svg class="ic" aria-hidden="true"><use href="#i-flask"/></svg>Research</button>
 <button class="nav-item" data-tool="study"><svg class="ic" aria-hidden="true"><use href="#i-school"/></svg>Study &amp; learning</button>
@@ -395,6 +409,24 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 </div>
 </section>
 
+<section id="creatorSection" class="section page">
+<h2>Creator</h2>
+<div class="creator-hero"><div class="crown">E</div><div style="flex:1;min-width:200px"><div class="handle" id="crHandle">—</div><div class="muted" id="crSub"></div></div><a class="secondary" href="/admin" style="padding:9px 14px;border-radius:12px;text-decoration:none">Admin dashboard →</a></div>
+<div class="creator-grid">
+<div class="c-card"><h3>Your Creator username</h3><p class="muted" style="margin-top:0">Your public, unique Creator name. Your login name doesn't change.</p>
+<div class="row"><input id="crHandleInput" class="field" maxlength="24" placeholder="e.g. RyderBuilds" autocomplete="off"><button id="crHandleSave" class="primary">Save</button></div>
+<div id="crHandleMsg" class="notice"></div><div id="crHandleSugg" class="sugg"></div></div>
+<div class="c-card"><h3>Invite an Admin</h3><p class="muted" style="margin-top:0">Admins get full access and the admin dashboard. Only you can invite them; admins can't invite admins. The invitation link is emailed, works once, and only for that address.</p>
+<div class="row"><input id="crInviteEmail" class="field" type="email" placeholder="their@email.com" autocomplete="off"><button id="crInviteSend" class="primary">Send invitation</button></div>
+<div id="crInviteMsg" class="notice"></div><div id="crMail" class="muted" style="font-size:12px;margin-top:6px"></div></div>
+</div>
+<div class="c-card" style="margin-top:14px"><h3>Invitations</h3><div class="c-scroll"><table class="c-table" id="crInvites"></table></div></div>
+<div class="creator-grid">
+<div class="c-card"><h3>Admins</h3><div class="c-scroll"><table class="c-table" id="crAdmins"></table></div></div>
+<div class="c-card"><h3>Activity</h3><p class="muted" style="margin-top:0">Every role change, invitation and Creator username change.</p><div class="c-scroll" style="max-height:320px;overflow:auto"><table class="c-table" id="crAudit"></table></div></div>
+</div>
+</section>
+
 <section id="historySection" class="section page">
 <h2>Chat history</h2><p class="muted">All your chats. Use ⋯ to rename, pin, archive or delete. Search from the sidebar.</p>
 <div id="historyList"></div>
@@ -446,7 +478,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <div class="row" style="flex-wrap:wrap"><div style="flex:0 0 auto"><button id="themeDark" class="secondary">🌙 Dark</button> <button id="themeLight" class="secondary">☀️ Light</button></div><div class="swatches" id="swatches"></div></div>
 <div class="row" style="margin-top:12px"><button id="saveSettings" class="primary" style="padding:12px 16px;flex:0 0 auto">Save settings</button><span id="settingsMsg" class="notice" style="margin:0"></span></div>
 <hr class="sep"><h3>Voice</h3><p class="muted">Voice uses your browser's built-in speech features. Availability depends on your browser and device.</p><div class="row"><button id="voiceToggle" class="secondary">🔊 Voice replies: OFF</button><button id="speakTest" class="secondary">Test voice</button></div><p class="notice">Microphone input requires browser support and permission. Your microphone is only used when you press the microphone button.</p><hr class="sep"><h3>Account</h3><p class="muted">Signed in as <strong id="accountName"></strong>. Your chats, memories and settings are stored in Sam's own database on its server, so they're there on every device.</p>
-<div id="claimBox" class="hidden"><h4>Become admin</h4><p class="muted">Ezer doesn't have an admin yet. Enter the one-time setup code from Ezer's server logs (on Render: your service → Logs, look for "Admin setup code"). The first person to enter it becomes the admin.</p><div class="row"><input id="claimCode" class="field" placeholder="XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"><button id="claimBtn" class="primary" style="padding:12px 16px;flex:0 0 auto">Become admin</button></div><p id="claimMsg" class="notice"></p></div>
+<div id="claimBox" class="hidden"><h4>Become the Creator</h4><p class="muted">Ezer doesn't have a Creator (owner) yet. Enter the one-time setup code from Ezer's server logs (on Render: your service → Logs, look for "Admin setup code"). The first person to enter it becomes the Creator: full access, and the only one who can invite admins.</p><div class="row"><input id="claimCode" class="field" placeholder="XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"><button id="claimBtn" class="primary" style="padding:12px 16px;flex:0 0 auto">Become the Creator</button></div><p id="claimMsg" class="notice"></p></div>
 <p class="muted" id="myUsage"></p>
 <h4>Change password</h4>
 <div class="row"><input id="pwCurrent" type="password" class="field" placeholder="Current password" autocomplete="current-password"><input id="pwNew" type="password" class="field" placeholder="New password (10+ characters)" autocomplete="new-password"><button id="pwChange" class="primary" style="padding:12px 16px">Update</button></div>
@@ -462,15 +494,16 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 const $=id=>document.getElementById(id);let voiceOn=false,recognition=null;
 const SESSION_CODES=['AUTH_REQUIRED','PASSWORD_CHANGED','ACCOUNT_DISABLED'];
 function authExpired(d={}){const m=d.code==='ACCOUNT_DISABLED'?'This account has been disabled.':d.code==='PASSWORD_CHANGED'?'Your password was changed — please log in again.':'Your session ended — please log in again.';showAuth(m);return Error(m)}
-async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}})}catch(e){throw Error('Can\'t reach Ezer\'s server. Check your connection.')}const d=await r.json().catch(()=>({}));if(r.status===401&&SESSION_CODES.includes(d.code))throw authExpired(d);if(!r.ok)throw Error(d.error||'Something went wrong');return d}
+async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}})}catch(e){throw Error('Can\'t reach Ezer\'s server. Check your connection.')}const d=await r.json().catch(()=>({}));if(r.status===401&&SESSION_CODES.includes(d.code))throw authExpired(d);if(!r.ok){const e=Error(d.error||'Something went wrong');e.data=d;throw e}return d}
 let registering=false,guestMode=false,guestInfo=null,guestAvailable=false;
 function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
 function showAuth(msg='',mode=false){guestMode=false;document.body.classList.remove('guest');setAuthMode(mode);$('guestBtn').classList.toggle('hidden',!guestAvailable);$('guestBtn').textContent=guestInfo?'← Back to my guest chat':'Try Ezer without an account →';$('keepGuestRow').classList.toggle('hidden',!(guestInfo&&guestInfo.hasChat));$('keepGuest').checked=false;$('adminLink').classList.add('hidden');document.body.classList.remove('drawer-open');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
-function showApp(username){guestMode=false;guestInfo=null;document.body.classList.remove('guest');$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels).then(loadCredits);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);samIsAdmin=!!s.isAdmin;$('profileSub').textContent=(s.isAdmin?'Admin · ':'')+planLine(s.plan);$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
+function showApp(username){guestMode=false;guestInfo=null;document.body.classList.remove('guest');$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels).then(loadCredits);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);samIsAdmin=!!s.isAdmin;samIsOwner=!!s.isOwner;$('creatorNav').classList.toggle('hidden',!s.isOwner);$('creatorLink').classList.toggle('hidden',!s.isOwner);$('deleteAccount').classList.toggle('hidden',!!s.isOwner);if(s.isOwner)$('profileSub').textContent='Creator · '+planLine(s.plan);$('profileSub').textContent=(s.isAdmin?'Admin · ':'')+planLine(s.plan);$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
 async function boot(){try{const s=await api('/api/status');guestAvailable=!!s.guestMode;guestInfo=s.guest;if(s.loggedIn)showApp(s.username);else if(s.guest)showGuest();else showAuth();const n=(s.providers||[]).length;$('aiState').textContent=s.aiConfigured?n+' AI provider'+(n===1?'':'s'):'No AI key configured';$('systemStatus').textContent=s.aiConfigured?'Sam · Online & Learning':'Sam · Setup needed';$('systemStatus').classList.toggle('warn',!s.aiConfigured);$('chipOnline').textContent=s.aiConfigured?'Online':'AI offline';$('chipOnline').classList.toggle('on',!!s.aiConfigured)}catch(e){showAuth('Could not reach the Ezer server. Start it using npm start.')}} 
 const keepGuestChoice=()=>!$('keepGuestRow').classList.contains('hidden')&&$('keepGuest').checked;
-async function afterAuth(d){showApp(d.username);if(d.guestChatId){await loadConversations().catch(()=>{});openConversation(d.guestChatId).catch(()=>{})}}
-$('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value,keepGuestChat:keepGuestChoice()})});afterAuth(d)}catch(e){$('authMessage').textContent=e.message}};
+async function afterAuth(d){let inv=null;try{inv=sessionStorage.getItem('ezer.invite')}catch{}if(inv){location.href='/invite#t='+inv;return}showApp(d.username);if(d.guestChatId){await loadConversations().catch(()=>{});openConversation(d.guestChatId).catch(()=>{})}}
+function showSuggestions(box,list,onPick){box.innerHTML='';(list||[]).forEach(n=>{const b=document.createElement('button');b.type='button';b.textContent=n;b.onclick=()=>onPick(n);box.append(b)})}
+$('register').onclick=async()=>{if(!registering){setAuthMode(true);return}$('nameSugg').innerHTML='';try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value,keepGuestChat:keepGuestChoice()})});afterAuth(d)}catch(e){$('authMessage').textContent=e.message;if(e.data?.suggestions?.length)showSuggestions($('nameSugg'),e.data.suggestions,n=>{$('username').value=n;$('nameSugg').innerHTML='';$('authMessage').textContent=`"${n}" is free. Press Sign up to take it.`})}};
 $('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,keepGuestChat:keepGuestChoice()})});afterAuth(d)}catch(e){$('authMessage').textContent=e.message}};
 // ---- Plan & Sam Credits: everything here comes from the server, so members see exactly the rules Sam applies ----
 let samCredits=null;
@@ -545,9 +578,38 @@ function updateCreditHint(){
   h.textContent=`${price?'This message: '+price+' · ':''}${fmtN(c.balance)} left`;
 }
 function creditNote(cr){if(!cr)return '';if(cr.unlimited&&samCredits?.plan?.fullAccess)return ' · full access';return cr.unlimited?` · included with ${samCredits?.plan?.label||'your plan'}`:` · ${cr.charged} ${cr.creditName||samCredits?.creditName||'credits'} · ${fmtN(cr.balance)} left`}
-let samIsAdmin=false;
-function afterCharge(cr){if(!cr||!samCredits)return;if(!cr.unlimited&&cr.balance!=null)samCredits.balance=cr.balance;updateCreditHint();$('profileSub').textContent=(samIsAdmin?'Admin · ':'')+planLine({label:samCredits.plan.label,unlimited:samCredits.plan.unlimited,fullAccess:samCredits.plan.fullAccess,balance:samCredits.balance,creditName:samCredits.creditName})}
+let samIsAdmin=false,samIsOwner=false;
+function afterCharge(cr){if(!cr||!samCredits)return;if(!cr.unlimited&&cr.balance!=null)samCredits.balance=cr.balance;updateCreditHint();$('profileSub').textContent=(samIsOwner?'Creator · ':samIsAdmin?'Admin · ':'')+planLine({label:samCredits.plan.label,unlimited:samCredits.plan.unlimited,fullAccess:samCredits.plan.fullAccess,balance:samCredits.balance,creditName:samCredits.creditName})}
 ['modelPick','speedPick'].forEach(id=>$(id).addEventListener('change',updateCreditHint));
+// ---- Creator area (only the Creator sees it; every action is checked again on the server) ----
+const fmtTime=t=>t?new Date(String(t).replace(' ','T')+'Z').toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+const ACTIONS={owner_set:'became the Creator',handle_claimed:'set the Creator username',invite_sent:'sent an admin invitation',invite_revoked:'revoked an invitation',invite_accepted:'accepted an admin invitation',admin_added:'added an admin',admin_removed:'removed an admin',invite_email_mismatch:'tried an invitation with the wrong email',invite_reuse_blocked:'tried to reuse an invitation',invite_failed:'invitation email failed',mail_test:'sent a test email'};
+function cell(tr,text,cls){const td=document.createElement('td');if(cls)td.className=cls;if(text instanceof Node)td.append(text);else td.textContent=text;tr.append(td);return td}
+async function loadCreator(){
+  let d;try{d=await api('/api/creator')}catch(e){$('crSub').textContent=e.message;return}
+  const p=d.profile;$('crHandle').textContent=p.handle?'@'+p.handle:'No Creator username yet';
+  $('crSub').textContent=`Creator & owner of Ezer · logs in as ${p.username} · full access to everything`;$('crHandleInput').value=p.handle||'';
+  $('crMail').textContent=d.mail.configured?`Invitations are emailed from ${d.mail.from}. Links expire after ${d.inviteExpiryHours} hours.`:'Email sending isn\'t set up yet, so invitations can\'t be delivered. Add SMTP_USER and SMTP_PASS in Render → Environment (a Gmail address + Google app password is free).';
+  $('crInviteSend').disabled=!d.mail.configured;
+  const it=$('crInvites');it.innerHTML='<tr><th>Email</th><th>Status</th><th>Sent</th><th>Expires</th><th></th></tr>';
+  if(!d.invites.length){const tr=document.createElement('tr');cell(tr,'No invitations yet.').colSpan=5;it.append(tr)}
+  d.invites.forEach(i=>{const tr=document.createElement('tr');cell(tr,i.email);const sp=document.createElement('span');sp.className='status-pill '+i.status;sp.textContent=i.status+(i.accepted_by?' by '+i.accepted_by:'');cell(tr,sp);cell(tr,fmtTime(i.created_at));cell(tr,i.status==='pending'?fmtTime(i.expires_at):'—');
+    const act=cell(tr,'');if(i.status==='pending'){const b=document.createElement('button');b.className='secondary';b.textContent='Revoke';b.onclick=async()=>{if(!confirm(`Revoke the invitation to ${i.email}? The link stops working immediately.`))return;try{await api(`/api/creator/invites/${i.id}/revoke`,{method:'POST'});loadCreator()}catch(e){alert(e.message)}};act.append(b)}
+    it.append(tr)});
+  const at=$('crAdmins');at.innerHTML='<tr><th>User</th><th>Role</th><th>Email</th><th></th></tr>';
+  d.admins.forEach(a=>{const tr=document.createElement('tr');cell(tr,a.username);cell(tr,a.role==='owner'?'Creator':'Admin');cell(tr,a.email||'—');const act=cell(tr,'');
+    if(a.role==='admin'){const b=document.createElement('button');b.className='secondary';b.textContent='Remove admin';b.onclick=async()=>{if(!confirm(`Remove ${a.username}'s admin rights?`))return;try{await api(`/api/creator/admins/${a.id}/remove`,{method:'POST'});loadCreator()}catch(e){alert(e.message)}};act.append(b)}
+    at.append(tr)});
+  const au=$('crAudit');au.innerHTML='<tr><th>When</th><th>What</th></tr>';
+  d.audit.forEach(a=>{const tr=document.createElement('tr');cell(tr,fmtTime(a.created_at));let det='';try{const j=JSON.parse(a.detail);det=j.email||j.to||''}catch{det=a.detail||''}cell(tr,`${a.actor||'Ezer'} ${ACTIONS[a.action]||a.action}${a.target&&a.target!==a.actor?' ('+a.target+')':''}${det?' — '+det:''}`);au.append(tr)});
+}
+$('crHandleSave').onclick=async()=>{const h=$('crHandleInput').value.trim();$('crHandleMsg').textContent='';$('crHandleSugg').innerHTML='';
+  try{const d=await api('/api/creator/handle',{method:'PUT',body:JSON.stringify({handle:h})});$('crHandleMsg').textContent=`✅ You're now @${d.handle}.`;loadCreator()}
+  catch(e){$('crHandleMsg').textContent=e.message+(e.data?.suggestions?.length?' These are free:':'');showSuggestions($('crHandleSugg'),e.data?.suggestions,n=>{$('crHandleInput').value=n;$('crHandleSugg').innerHTML='';$('crHandleMsg').textContent=`"${n}" is free. Press Save to claim it.`})}};
+let crCheckTimer=null;$('crHandleInput').addEventListener('input',()=>{clearTimeout(crCheckTimer);const h=$('crHandleInput').value.trim();if(h.length<3)return;crCheckTimer=setTimeout(async()=>{try{const d=await api('/api/creator/handle/check?name='+encodeURIComponent(h));$('crHandleMsg').textContent=d.available?`✓ "${h}" is available.`:d.reason;showSuggestions($('crHandleSugg'),d.available?[]:d.suggestions,n=>{$('crHandleInput').value=n;$('crHandleSugg').innerHTML='';$('crHandleMsg').textContent=`"${n}" is free. Press Save to claim it.`})}catch{}},350)});
+$('crInviteSend').onclick=async()=>{const email=$('crInviteEmail').value.trim();$('crInviteMsg').textContent='';$('crInviteSend').disabled=true;
+  try{const d=await api('/api/creator/invites',{method:'POST',body:JSON.stringify({email})});$('crInviteMsg').textContent=`✅ Invitation emailed to ${d.invite.email}. It expires ${fmtTime(d.invite.expiresAt)}.`;$('crInviteEmail').value='';loadCreator()}
+  catch(e){$('crInviteMsg').textContent=e.message}finally{$('crInviteSend').disabled=false}};
 // ---- Guest mode: plain chat, Fast models, a daily allowance, nothing saved ----
 function renderGuestBar(){const g=guestInfo||{};const left=g.remaining??0;$('guestLeft').textContent=left>0?`${left} of ${g.limit} free messages left today`:'no free messages left today';$('guestBar').classList.toggle('out',left<=0)}
 async function showGuest(){
@@ -973,7 +1035,7 @@ $('voiceToggle').onclick=()=>{voiceOn=!voiceOn;$('voiceToggle').textContent='�
 $('mic').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Speech recognition is not supported in this browser. Try a recent Chrome browser.');return}recognition=new SR();recognition.lang='en-GB';recognition.onresult=e=>{$('prompt').value=e.results[0][0].transcript};recognition.onerror=()=>alert('Microphone unavailable. Check browser permission.');recognition.start()};
 async function loadMyUsage(){try{const u=await api('/api/usage');$('myUsage').textContent=`Your AI usage: ${u.today.requests} request${u.today.requests===1?'':'s'} today, ${u.last30Days.requests} in the last 30 days (~${(u.last30Days.input_tokens+u.last30Days.output_tokens).toLocaleString()} tokens).`}catch(e){}}
 document.querySelectorAll('[data-tab="settings"]').forEach(b=>b.addEventListener('click',loadMyUsage));
-$('claimBtn').onclick=async()=>{$('claimMsg').textContent='';$('claimBtn').disabled=true;try{await api('/api/admin/claim',{method:'POST',body:JSON.stringify({code:$('claimCode').value})});$('claimCode').value='';$('claimMsg').textContent='✅ You are now Ezer\'s admin. The Admin dashboard is in your profile menu.';$('adminLink').classList.remove('hidden');$('profileSub').textContent='Admin';setTimeout(()=>$('claimBox').classList.add('hidden'),4000)}catch(e){$('claimMsg').textContent=e.message}finally{$('claimBtn').disabled=false}};
+$('claimBtn').onclick=async()=>{$('claimMsg').textContent='';$('claimBtn').disabled=true;try{await api('/api/admin/claim',{method:'POST',body:JSON.stringify({code:$('claimCode').value})});$('claimCode').value='';$('claimMsg').textContent='✅ You are now Ezer\'s Creator. The Creator area and Admin dashboard are in your profile menu.';$('adminLink').classList.remove('hidden');$('creatorNav').classList.remove('hidden');$('creatorLink').classList.remove('hidden');samIsOwner=true;samIsAdmin=true;$('profileSub').textContent='Creator';setTimeout(()=>$('claimBox').classList.add('hidden'),4000)}catch(e){$('claimMsg').textContent=e.message}finally{$('claimBtn').disabled=false}};
 $('pwChange').onclick=async()=>{$('pwMsg').textContent='';try{await api('/api/account/password',{method:'POST',body:JSON.stringify({current:$('pwCurrent').value,next:$('pwNew').value})});$('pwCurrent').value=$('pwNew').value='';$('pwMsg').textContent='✅ Password updated. Other devices have been signed out.'}catch(e){$('pwMsg').textContent=e.message}};
 $('exportData').onclick=()=>{window.location.href='/api/account/export'};
 $('deleteAccount').onclick=()=>{$('deleteBox').classList.toggle('hidden');$('deletePw').focus()};
@@ -1033,7 +1095,7 @@ async function loadLibrary(){
 $('asSave').onclick=async()=>{$('asMsg').textContent='';try{await api('/api/assistants',{method:'POST',body:JSON.stringify({name:$('asName').value,icon:$('asIcon').value,instructions:$('asInstr').value})});$('asName').value=$('asInstr').value=$('asIcon').value='';$('asMsg').textContent='✅ Saved.';loadLibrary()}catch(e){$('asMsg').textContent=e.message}};
 $('prSave').onclick=async()=>{$('prMsg').textContent='';try{await api('/api/prompts',{method:'POST',body:JSON.stringify({title:$('prTitle').value,body:$('prBody').value})});$('prTitle').value=$('prBody').value='';$('prMsg').textContent='✅ Saved.';loadLibrary()}catch(e){$('prMsg').textContent=e.message}};
 // ---- v3.4 redesign: sections, welcome, composer toggles, drawer ----
-const SECTIONS=['chat','history','memory','pinned','library','models','settings'];
+const SECTIONS=['chat','history','memory','pinned','library','models','settings','creator'];
 let webOn=false,councilToggleOn=false,lastConvs=[];
 function showSection(name){
   if(!SECTIONS.includes(name))name='chat';
@@ -1041,7 +1103,8 @@ function showSection(name){
   SECTIONS.forEach(n=>$(n+'Section').classList.toggle('active',n===name));
   $('profileMenu').classList.add('hidden');closeDrawer();
   if(name==='memory')loadMemories();if(name==='pinned')loadPins();if(name==='library'||name==='models')loadLibrary();
-  if(name==='settings'){loadSettings();loadCredits()}if(name==='history')loadHistoryView();
+  if(name==='settings'){loadSettings();loadCredits()}
+  if(name==='creator')loadCreator();if(name==='history')loadHistoryView();
 }
 function showWelcome(on){$('welcome').hidden=!on;document.querySelector('.quick').classList.toggle('hidden',!on);if(on){renderChips();renderRecent()}}
 function renderChips(){$('chipMemory').textContent='Memory '+(samSettings.useMemories===false?'off':'on');$('chipWeb').textContent='Web '+(webOn?'on':'off');$('chipAuto').textContent=samSettings.autoMode===false?'Auto routing off':'Auto routing'}

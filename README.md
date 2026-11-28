@@ -6,7 +6,14 @@ Ezer is a self-hosted AI platform with its own backend, database, accounts and A
 
 > **Naming (v4.4):** the platform is **Ezer** (website, logo, page titles, accounts, credits). The assistant inside it is **Sam** (chat replies, personality, the "Sam Council"). Internal names stay as they were, so nothing breaks: the repo, the `sam.sid` cookie, the `sam-backup-v1` backup format, database tables and API routes.
 
-## What works now (v4.4)
+## What works now (v4.5)
+- **Creator, Admins and invitations (v4.5):**
+  - **Roles:** Creator (the owner; exactly one, protected), Admin, user, guest. All checks happen on the server.
+  - **Creator area:** opened with the Creator button, it shows the Creator profile and a unique **Creator username** (case-insensitive). If a name is taken, Ezer suggests five alternatives, each checked against the database before it's shown. Sign-up does the same.
+  - **Admin invitations:** only the Creator can invite admins, by email. The link holds a random single-use token (only its hash is stored), expires after 72 h (`INVITE_EXPIRY_HOURS`), is tied to the invited address (the invitee confirms it), and gives admin rights only once accepted. The Creator sees each invite as pending, accepted, expired or revoked, and can revoke pending ones.
+  - **Limits on admins:** they can't invite or promote anyone, and can't touch the Creator's account.
+  - **Activity log:** every role change, invitation and username change is recorded and shown in the Creator area.
+  - **Emails:** sent with nodemailer through any SMTP account. A free Gmail account with an app password works.
 - **Rebranded to Ezer (v4.4):** the website, logo, page titles, login and sign-up, admin dashboard and docs now say Ezer, with the tagline "One platform. Endless possibilities." Sam stays as the assistant's name and personality. Credits are now called "Ezer Credits" (Max: "Unlimited Ezer Credits"); admins can rename them.
 - **Plans and Sam Credits (v4.3, no real money yet):** Free accounts get 1,000 Sam Credits a month. Each answer costs a fixed, published amount: Fast 1, Balanced 5, Deep 12, with some models priced individually. Web search adds 1 and an image adds 2. Members see the price next to Send, and after each answer they see what it cost and what's left. They're never charged more than the price shown. Failed answers are free. **Max** gives "Unlimited Sam Credits": no monthly allowance, and nothing deducted for included features. Its one fair-use rule is published: after a set number of top-model messages a day, Sam answers with standard models (no charge, no block). Members see their plan, prices, limits and every balance change in Settings → Plan & credits. Admins move accounts between plans, add or remove credits, and change every number and the wording in Admin → Plans & credits. No payments yet.
 - **Admins have full access (v4.3.1):** no credits taken, no daily top-model limit, every feature, and no per-minute message limit. The site-wide safety limit still applies. It's on by default and can be switched off in Admin → Plans & credits; admins then follow their own plan. Members' private chats stay private; admins can't read them.
@@ -90,6 +97,9 @@ Log in to Sam, open **Settings → Become admin**, and enter the code. On Render
 | `MAX_TOKENS` | no | Reply budget for Balanced (default 4000). Fast gets half, Deep gets double |
 | `COUNCIL_CHAIR_SPEED` | no | Tier used to combine council answers (default `balanced`) |
 | `AI_FIRST_TOKEN_TIMEOUT_MS` / `AI_REQUEST_TIMEOUT_MS` | no | How long Sam waits for a model before trying the next one. Defaults: first words within 30 s (Fast), 45 s (Balanced), 90 s (Deep); whole non-streamed answers within 60 / 90 / 150 s |
+| `SMTP_USER` / `SMTP_PASS` | for admin invitations | An SMTP login for sending invitation emails. Free option: a Gmail address and a Google **app password**. Also `SMTP_HOST` (default `smtp.gmail.com`), `SMTP_PORT` (465), `MAIL_FROM` |
+| `INVITE_EXPIRY_HOURS` | no | How long an admin invitation link works (default 72) |
+| `PUBLIC_URL` | no | The site address used in invitation links (on Render, `RENDER_EXTERNAL_URL` is used automatically) |
 | `GUEST_MODE` | no | `0` turns guest mode off (default on) |
 | `GUEST_DAILY_MESSAGES` / `GUEST_NETWORK_DAILY` / `GUEST_DAILY_TOTAL` | no | Guest allowances per day: per guest (default 10), per network (30) and for all guests together (300) |
 | `GUEST_IDLE_MIN` | no | Minutes without a message before a guest chat is deleted (default 120) |

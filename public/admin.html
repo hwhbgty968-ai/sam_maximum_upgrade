@@ -140,6 +140,7 @@ textarea.wide{width:100%;min-height:110px;box-sizing:border-box;line-height:1.5}
 <script>
 const $ = id => document.getElementById(id);
 let me = null; // your own user id: you can't disable yourself or change your own role
+let iAmOwner = false; // only the Creator (owner) can remove admins; admins are added by invitation in the Creator area
 async function api(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: { "Content-Type": "application/json", ...(opts.headers || {}) } });
   const d = await r.json().catch(() => ({}));
@@ -192,16 +193,16 @@ async function loadUsers() {
   const fullAccess = (creditData || await api("/api/admin/credits/config").catch(() => null))?.config?.adminFullAccess !== false;
   $("userCount").textContent = `${d.total} user${d.total === 1 ? "" : "s"}`;
   table("userTable", ["User", "Age", "Plan", "Credits used (month)", "Joined", "Last login", "Messages", "AI reqs (30d)", "Status", ""], d.users.map(u => [
-    el("span", {}, u.username, u.isAdmin ? el("span", { class: "pill", style: "margin-left:6px" }, "admin") : null),
+    el("span", {}, u.username, u.isOwner ? el("span", { class: "pill", style: "margin-left:6px" }, "Creator") : u.isAdmin ? el("span", { class: "pill", style: "margin-left:6px" }, "admin") : null),
     u.age ?? "—",
     u.isAdmin && fullAccess ? el("span", {}, planSelect(u), " ", el("span", { class: "pill", title: "Admins have full access: no credits taken, no limits. Their own plan applies if they stop being an admin." }, "full access")) : planSelect(u),
     el("span", {}, n(u.credits_used), " ", el("button", { class: "small", title: "Add or remove credits", onclick: () => adjustCredits(u) }, "±")),
     when(u.created_at), when(u.last_login_at), n(u.messages), n(u.requests30d),
     u.disabled ? el("span", { class: "bad" }, "Disabled") : el("span", { class: "ok" }, "Active"),
     el("span", {},
-      u.id === me ? el("span", { class: "muted" }, "you") : [
+      u.id === me ? el("span", { class: "muted" }, "you") : u.isOwner ? el("span", { class: "muted" }, "protected") : [
         el("button", { class: u.disabled ? "" : "danger", onclick: () => toggleUser(u) }, u.disabled ? "Enable" : "Disable"), " ",
-        el("button", { onclick: () => setRole(u) }, u.isAdmin ? "Remove admin" : "Make admin"), " "],
+        iAmOwner && u.isAdmin ? el("button", { onclick: () => setRole(u) }, "Remove admin") : null, " "],
       el("button", { onclick: () => resetLink(u) }, "Reset link"))
   ]));
 }
@@ -226,8 +227,8 @@ async function toggleUser(u) {
   try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ disabled: !u.disabled }) }); loadUsers(); } catch (e) { alert(e.message); }
 }
 async function setRole(u) {
-  const role = u.isAdmin ? "user" : "admin";
-  if (!confirm(role === "admin" ? `Make ${u.username} an admin? They'll see every user and can change accounts.` : `Remove ${u.username}'s admin rights?`)) return;
+  const role = "user"; // admins are added only by invitation (Creator area); here the Creator can remove them
+  if (!confirm(`Remove ${u.username}'s admin rights?`)) return;
   try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ role }) }); loadUsers(); } catch (e) { alert(e.message); }
 }
 async function resetLink(u) {
@@ -390,7 +391,8 @@ $("backupNow").onclick = async () => {
   try {
     const s = await api("/api/status");
     if (!s.loggedIn) return location.href = "/";
-    if (!s.isAdmin) { $("gate").textContent = s.adminSetupOpen ? "Ezer has no admin yet. In Ezer, open Settings → Become admin and enter the setup code from the server logs." : "Admins only. Ask an existing admin to make you one."; return; }
+    if (!s.isAdmin) { $("gate").textContent = s.adminSetupOpen ? "Ezer has no Creator yet. In Ezer, open Settings → Become the Creator and enter the setup code from the server logs." : "Admins only. Admins are invited by Ezer's Creator."; return; }
+    iAmOwner = !!s.isOwner;
     $("gate").hidden = true; $("app").hidden = false;
     me = (await api("/api/admin/users?q=" + encodeURIComponent(s.username))).users.find(u => u.username === s.username)?.id ?? null;
     await loadOverview();
