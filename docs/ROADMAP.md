@@ -1,4 +1,6 @@
-# Sam: realistic technical roadmap
+# Ezer: realistic technical roadmap
+
+(Ezer is the platform, renamed from Sam in v4.4; Sam is its built-in AI assistant.)
 
 This maps the **Sam master plan** (16 sections, 8 stages) onto what exists today, what can be built in-house, and what depends on outside services or new infrastructure.
 

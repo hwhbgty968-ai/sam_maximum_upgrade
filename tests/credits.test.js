@@ -12,11 +12,11 @@ const credits = require(repo + "/lib/credits.js");
   const fast = { provider: "gemini", model: "gemini-3.1-flash-lite", tier: "fast" }, bal = { provider: "gemini", model: "gemini-3.5-flash", tier: "balanced" };
   const deep = { provider: "gemini", model: "gemini-3.1-pro-preview", tier: "deep" }, opus = { provider: "anthropic", model: "claude-opus-5-5", tier: "deep" };
 
-  await t("defaults: Free = 1,000 a month; Max = Unlimited Sam Credits with every feature included", () => {
+  await t("defaults: Free = 1,000 a month; Max = Unlimited Ezer Credits with every feature included", () => {
     assert.equal(cfg.plans.free.monthlyCredits, 1000);
     assert.equal(cfg.plans.max.unlimited, true);
     assert.deepEqual(cfg.plans.max.eligible.sort(), Object.keys(credits.FEATURES).sort());
-    assert.equal(cfg.creditName, "Sam Credits");
+    assert.equal(cfg.creditName, "Ezer Credits");
     assert.match(cfg.maxNote, /isn't a promise of unlimited access to every outside AI model/);
   });
 
@@ -66,7 +66,7 @@ const credits = require(repo + "/lib/credits.js");
     await credits.grant(u, -996, "test");
     const c = await credits.begin(u, { feature: "chat", quoteCredits: 5 });
     assert.equal(c.ok, false); assert.equal(c.status, 402); assert.equal(c.code, "NO_CREDITS");
-    assert.match(c.message, /needs 5 Sam Credits and you have 4 left this month\. Your allowance resets on 1 \w+\. Switching speed to Fast costs 1\./);
+    assert.match(c.message, /needs 5 Ezer Credits and you have 4 left this month\. Your allowance resets on 1 \w+\. Switching speed to Fast costs 1\./);
     assert.equal((await credits.begin(u, { feature: "chat", quoteCredits: 1 })).ok, true, "a 1-credit Fast answer still works");
   });
 
@@ -127,13 +127,13 @@ const credits = require(repo + "/lib/credits.js");
     await assert.rejects(credits.saveConfig({ plans: { free: { monthlyCredits: -5 } } }), /Free monthly credits must be a whole number/);
     await assert.rejects(credits.saveConfig({ creditName: "" }), /Credit name/);
     await assert.rejects(credits.saveConfig({ costs: { models: { "bad name!": 3 } } }), /isn't a valid model name/);
-    await credits.saveConfig({ creditName: "Ezer Credits", plans: { free: { monthlyCredits: 500 } }, costs: { balanced: 4, models: { "gemini-3.5-flash": 4 } } });
+    await credits.saveConfig({ creditName: "Bonus Points", plans: { free: { monthlyCredits: 500 } }, costs: { balanced: 4, models: { "gemini-3.5-flash": 4 } } });
     const c2 = await credits.config();
-    assert.deepEqual([c2.creditName, c2.plans.free.monthlyCredits, c2.costs.models["gemini-3.5-flash"], c2.costs.models["claude-opus-5-5"]], ["Ezer Credits", 500, 4, 11]);
+    assert.deepEqual([c2.creditName, c2.plans.free.monthlyCredits, c2.costs.models["gemini-3.5-flash"], c2.costs.models["claude-opus-5-5"]], ["Bonus Points", 500, 4, 11]);
     const u = await user("newmonth");
     assert.equal((await credits.summary(u)).balance, 500);
-    assert.match((await credits.begin(u, { feature: "chat", quoteCredits: 999 })).message, /999 Ezer Credits/);
-    await credits.saveConfig({ creditName: "Sam Credits", plans: { free: { monthlyCredits: 1000 } }, costs: { balanced: 5, models: { "gemini-3.5-flash": 5 } } });
+    assert.match((await credits.begin(u, { feature: "chat", quoteCredits: 999 })).message, /999 Bonus Points/);
+    await credits.saveConfig({ creditName: "Ezer Credits", plans: { free: { monthlyCredits: 1000 } }, costs: { balanced: 5, models: { "gemini-3.5-flash": 5 } } });
   });
 
   await t("admin: change plan, add or remove credits, stats", async () => {
@@ -143,7 +143,7 @@ const credits = require(repo + "/lib/credits.js");
     await assert.rejects(credits.setPlan(u, "platinum"), /Unknown plan/);
     await credits.setPlan(u, "free");
     assert.equal(await credits.grant(u, 250, "thanks for testing"), 1250);
-    assert.match((await credits.history(u))[0].description, /Bonus from Sam's admin: thanks for testing/);
+    assert.match((await credits.history(u))[0].description, /Bonus from Ezer's admin: thanks for testing/);
     await assert.rejects(credits.grant(u, 1.5), /whole number/);
     assert.equal(await credits.grant(999999, 5), null);
     const st = await credits.stats();
