@@ -91,6 +91,45 @@ function check(name, ok, detail = "") {
     console.log("\n  ⏭  AI tests skipped — no AI key configured on the server");
   }
 
+  console.log("\nChat management (v3.2)");
+  const ren = await A("PATCH", "/api/conversations/" + ca.data.id, { title: "Smoke chat " + id });
+  check("rename own chat", ren.status === 200 && ren.data.conversation?.title === "Smoke chat " + id, ren.text);
+  check("user B can't rename A's chat", (await B("PATCH", "/api/conversations/" + ca.data.id, { title: "hacked" })).status === 404);
+  check("pin own chat", (await A("PATCH", "/api/conversations/" + ca.data.id, { pinned: true })).data.conversation?.pinned === true);
+  const listA = await A("GET", "/api/conversations");
+  check("pinned chat listed first", listA.data.conversations?.[0]?.id === ca.data.id);
+  const srA = await A("GET", "/api/search?q=" + encodeURIComponent("Smoke chat " + id));
+  check("search finds own chat", srA.data.conversations?.some(c => c.id === ca.data.id), srA.text);
+  const srB = await B("GET", "/api/search?q=" + encodeURIComponent("Smoke chat " + id));
+  check("search never shows another user's chats", srB.status === 200 && !srB.data.conversations?.length && !srB.data.messages?.length, srB.text);
+  check("archive own chat", (await A("PATCH", "/api/conversations/" + ca.data.id, { archived: true })).status === 200);
+  check("archived chat hidden from main list", !(await A("GET", "/api/conversations")).data.conversations.some(c => c.id === ca.data.id));
+  check("…and shown in the archive", (await A("GET", "/api/conversations?archived=1")).data.conversations.some(c => c.id === ca.data.id));
+  await A("PATCH", "/api/conversations/" + ca.data.id, { archived: false });
+
+  if (aiOn) {
+    const parse = t => t.split("\n\n").filter(l => l.startsWith("data: ")).map(l => JSON.parse(l.slice(6)));
+    const done = evs => evs.find(e => e.done) || {};
+    const before = (await A("GET", "/api/conversations/" + ca.data.id)).data.messages.length;
+    const rg = done(parse((await A("POST", "/api/chat", { regenerate: true, conversationId: ca.data.id, speed: "fast" })).text));
+    const afterRg = (await A("GET", "/api/conversations/" + ca.data.id)).data.messages;
+    check("regenerate replaces the last reply (same message count)", rg.assistantMessageId && afterRg.length === before, JSON.stringify(rg).slice(0, 200));
+    check("user B can't regenerate in A's chat", (await B("POST", "/api/chat", { regenerate: true, conversationId: ca.data.id })).status === 404);
+    const firstUser = afterRg.find(m => m.role === "user");
+    const ed = done(parse((await A("POST", "/api/chat", { message: "Reply with just the word: edited", editMessageId: firstUser.id, conversationId: ca.data.id, speed: "fast" })).text));
+    const afterEd = (await A("GET", "/api/conversations/" + ca.data.id)).data.messages;
+    check("edit & resend replaces the message and what followed", ed.userMessageId && afterEd.length === 2 && afterEd[0].content.includes("edited"), JSON.stringify(afterEd).slice(0, 200));
+    const pinR = await A("PATCH", "/api/messages/" + ed.assistantMessageId, { pinned: true });
+    check("pin a message", pinR.status === 200);
+    check("user B can't pin A's message", (await B("PATCH", "/api/messages/" + ed.assistantMessageId, { pinned: true })).status === 404);
+    check("pinned message in Pins", (await A("GET", "/api/pins")).data.messages?.some(m => m.id === ed.assistantMessageId));
+    check("B's Pins don't include A's", !(await B("GET", "/api/pins")).data.messages?.length);
+    const models = (await A("GET", "/api/models")).data.models.filter(m => m.id !== "auto").slice(0, 2).map(m => m.id);
+    const cc = await A("POST", "/api/conversations", { mode: "council" });
+    const cdone = done(parse((await A("POST", "/api/chat", { message: "What is 2+2? One line.", conversationId: cc.data.id, mode: "council", councilModels: models })).text));
+    check(`Sam Council with chosen members (${models.join(", ")})`, cdone.meta?.council?.length >= 1 && cdone.meta.council.every(m => models.includes(m.provider + ":" + m.model)), JSON.stringify(cdone).slice(0, 300));
+  }
+
   console.log("\nYour account");
   const exp = await A("GET", "/api/account/export");
   check("export contains A's own chat and memory", exp.status === 200 && exp.data.conversations?.some(c => c.id === ca.data.id) && exp.text.includes("A's private note " + id), exp.text.slice(0, 200));
