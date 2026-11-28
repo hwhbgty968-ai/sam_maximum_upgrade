@@ -273,6 +273,22 @@ const quiet = { warn: () => {} };
     assert.deepEqual(ai.providerStatus().gemini.switched, {});
   });
 
+  await t("REAL live situation (28 Nov): Pro + 2.5 Pro 429, 3.5 Flash 503 twice → Deep and Balanced switch to newer Flash models", async () => {
+    const live = "gemini-2.5-flash, gemini-2.5-pro, gemini-flash-latest, gemini-flash-lite-latest, gemini-pro-latest, gemini-2.5-flash-lite, gemini-3-flash-preview, gemini-3.1-pro-preview, gemini-3.1-pro-preview-customtools, gemini-3.1-flash-lite-preview, gemini-3.1-flash-lite, nano-banana-pro-preview, gemini-nano-banana-2.1, gemini-3.5-flash, gemini-3.5-flash-lite, gemini-3.6-flash, gemini-3.7-flash, gemini-3.8-flash, gemini-4-argon, gemini-4-carbon, gemini-4-hydrogen, gemini-4-neon, antigravity-preview-05-2026, antigravity-preview-09-2026, antigravity-preview-latest, genie-4, gemini-decision-1".split(", ");
+    const q = { status: 429, message: "429 status code (no body)" };
+    global.FAKE = { [G]: { models: live, failModels: { "gemini-3.1-pro-preview": q, "gemini-2.5-pro": q, "gemini-pro-latest": q, "gemini-3.5-flash": { status: 503, message: "503 status code (no body)" } } } };
+    global.CALLS = []; const w = console.warn; console.warn = () => {};
+    init({ GEMINI_API_KEY: "g" }); await ai.verifyModels(quiet);
+    const run = await ai.testProviders({ retryDelayMs: 5, log: { warn() {} } });
+    console.warn = w;
+    const by = Object.fromEntries(run.results.gemini.models.map(m => [m.tier, m]));
+    assert.deepEqual([by.fast.model, by.fast.ok], ["gemini-3.1-flash-lite", true]);
+    assert.deepEqual([by.balanced.model, by.balanced.switchedFrom], ["gemini-3.6-flash", "gemini-3.5-flash"]);
+    assert.deepEqual([by.deep.model, by.deep.switchedFrom], ["gemini-3.8-flash", "gemini-3.1-pro-preview"]);
+    assert.deepEqual(by.deep.tried, ["gemini-2.5-pro: Rate limited 429"]);
+    assert.ok(!CALLS.some(c => /banana|genie|antigravity|decision|customtools/.test(c.body.model)), "never tries image or special-purpose models");
+  });
+
   await t("a one-off rate limit that clears on the retry doesn't cause a switch", async () => {
     let n = 0;
     global.FAKE = { [G]: { reply: b => { if (b.model === "gemini-3.1-pro-preview" && n++ === 0) throw Object.assign(new Error("429 status code (no body)"), { status: 429 }); return "OK"; } } };
