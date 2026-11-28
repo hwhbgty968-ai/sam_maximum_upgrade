@@ -61,6 +61,14 @@ function check(name, ok, detail = "") {
   const cr = await A("GET", "/api/credits");
   check("new account: a plan, a credit balance and published prices", cr.status === 200 && !!cr.data.plan?.label && (cr.data.plan.unlimited || cr.data.balance === cr.data.plan.monthlyCredits) && cr.data.costs?.fast >= 0, cr.text.slice(0, 200));
   check("no one can see or change credit settings without being admin", (await A("GET", "/api/admin/credits/config")).status === 403 && (await A("PUT", "/api/admin/credits/config", { config: {} })).status === 403);
+  check("plans include Premium (not on sale; no payment)", (cr.data.plans || []).some(p => p.id === "premium"), cr.text.slice(0, 200));
+  const mk = await A("GET", "/api/plugins");
+  check("Marketplace lists plugins; planned integrations aren't connectable", mk.status === 200 && mk.data.plugins.some(p => p.id === "calculator") && (await A("POST", "/api/plugins/github/connect", { accept: true })).status === 400, mk.text.slice(0, 200));
+  check("connecting a plugin needs consent", (await A("POST", "/api/plugins/calculator/connect", {})).status === 400);
+  const cc = await A("POST", "/api/plugins/calculator/connect", { accept: true });
+  check("connect + disconnect a plugin", cc.status === 200 && cc.data.plugins.find(p => p.id === "calculator").connected && !(await A("POST", "/api/plugins/calculator/disconnect")).data.plugins.find(p => p.id === "calculator").connected);
+  check("plugin settings are admin-only", (await A("GET", "/api/admin/plugins")).status === 403 && (await A("PUT", "/api/admin/plugins/config", { config: {} })).status === 403);
+  check("logged-out visitors can't see plugins", (await anon("GET", "/api/plugins")).status === 401);
   const sa = await A("GET", "/api/status");
   check("user A session sticks after register", sa.data.loggedIn === true && sa.data.username === userA, sa.text);
   check("user A is not an admin", sa.data.isAdmin === false);
