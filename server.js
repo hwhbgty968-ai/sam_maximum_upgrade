@@ -27,6 +27,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_PROD = process.env.NODE_ENV === "production" || !!process.env.RENDER;
 const MODES = ["chat", "web", "research", "vision", "image", "coding", "council"];
+const APP_VERSION = require("./package.json").version;
 const MIN_AGE = 13;          // UK GDPR / ICO Children's Code: under-13s would need parental consent
 const GUEST_USER_ID = 0;     // guest usage is logged under user 0 (no such account)
 
@@ -624,12 +625,12 @@ async function loadProviderTests() {
 }
 async function saveProviderTests(run) {
   const prev = (await loadProviderTests()) || { results: {} };
-  const merged = { at: run.at, results: { ...prev.results, ...run.results } };
+  const merged = { at: run.at, version: APP_VERSION, results: { ...prev.results, ...run.results } };
   await db.run("INSERT INTO app_settings(key,value) VALUES('provider_tests',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", JSON.stringify(merged));
 }
 function summariseTests(run) {
   return Object.entries(run.results).map(([n, r]) => r.key === "missing" ? `${n}: no key`
-    : `${n}: ` + r.models.filter(m => !m.sameAs).map(m => m.ok ? `✓ ${m.model} (${m.ms}ms)` : `✗ ${m.model} — ${m.label}${m.status ? " " + m.status : ""}`).join(", ")).join(" | ");
+    : `${n}: ` + r.models.filter(m => !m.sameAs).map(m => (m.ok ? `✓ ${m.model} (${m.ms}ms)` : `✗ ${m.model} — ${m.label}${m.status ? " " + m.status : ""}`) + (m.switchedFrom ? ` [${m.tier}: switched from ${m.switchedFrom} — ${m.switchReason}]` : "")).join(", ")).join(" | ");
 }
 
 function record(userId, mode, result, ok = true) {
@@ -904,10 +905,11 @@ async function main() {
   if (process.env.PROVIDER_STARTUP_TEST !== "0" && ai.isConfigured()) (async () => {
     await modelsChecked;
     const last = await loadProviderTests();
-    if (last && Date.now() - Date.parse(last.at) < 6 * 60 * 60 * 1000) return;
+    // Re-test after every new version too, so old results (from older code) never linger.
+    if (last && last.version === APP_VERSION && Date.now() - Date.parse(last.at) < 6 * 60 * 60 * 1000) return;
     const run = await ai.testProviders();
     await saveProviderTests(run);
-    console.log(`[sam] provider test: ${summariseTests(run)}`);
+    console.log(`[ezer] provider test: ${summariseTests(run)}`);
   })().catch(e => console.warn("[sam] provider test failed:", e.message));
   // Render stops the old server on every deploy: finish requests, then close database connections cleanly.
   const stop = () => server.close(() => db.close().finally(() => process.exit(0)));

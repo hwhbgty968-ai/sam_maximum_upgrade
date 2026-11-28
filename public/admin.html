@@ -274,12 +274,12 @@ function renderProviders(p, missing = [], lastTest = null) {
         s.key === "invalid" ? el("span", { class: "bad" }, "not used (bad key)")
           : cool ? el("span", { class: "warn", title: cool.message || "" }, cool.untilTest ? `skipped until next test (${cool.label.toLowerCase()})` : `avoiding for ${cool.secondsLeft}s (${cool.label.toLowerCase()})`)
           : el("span", { class: "ok" }, "in use"),
-        s.replaced?.[tier] ? `replaced "${s.replaced[tier]}"` : ""]);
+        s.switched?.[tier] ? el("span", { class: "warn", title: s.switched[tier].reason }, `switched from ${s.switched[tier].from} (${s.switched[tier].reason.toLowerCase()} with this key)`) : s.replaced?.[tier] ? `replaced "${s.replaced[tier]}"` : ""]);
     }
     const counts = Object.entries(s.failures || {}).map(([k, n]) => `${n}× ${k.replace(/_/g, " ")}`).join(", ");
     if (counts || s.lastError) notes.push(`${s.label}: failures since restart: ${counts || "none"}` + (s.lastError ? ` · last: ${s.lastError.model}, ${s.lastError.kind.replace(/_/g, " ")}${s.lastError.status ? " " + s.lastError.status : ""} ${ago(s.lastError.at)} — "${s.lastError.message}"` : ""));
     if (s.error && s.key !== "invalid") notes.push(`${s.label}: couldn't read the provider's model list ("${s.error}"). Ezer still uses the models above.`);
-    if (s.key === "invalid") notes.push(`${s.label}: the API key was rejected${s.keyError ? ` ("${s.keyError}")` : ""}. Fix or remove it in the server's environment; until then Sam routes around ${s.label}.`);
+    if (s.key === "invalid") notes.push(`${s.label}: the API key was rejected${s.keyError ? ` ("${s.keyError}")` : ""}. Fix or remove it in the server's environment; until then Ezer routes around ${s.label}.`);
   }
   for (const m of missing) rows.push([m.label, keyCell("missing"), "—", "—", "—", "—", el("span", { class: "muted" }, `add ${m.envKey} to connect`), ""]);
   table("provTable", ["Provider", "API key", "Tier", "Model", "Provider's model list", "Last live test", "Right now", "Note"], rows);
