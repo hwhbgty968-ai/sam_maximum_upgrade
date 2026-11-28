@@ -150,6 +150,31 @@ const credits = require(repo + "/lib/credits.js");
     assert.ok(st.creditsUsed > 0 && st.plans.max >= 1 && st.includedAnswers >= 1);
   });
 
+  await t("admins get full access: no credits, no fair-use cap, every feature — and it can be switched off", async () => {
+    await credits.saveConfig({ plans: { max: { eligible: ["chat"], topModelDailyMessages: 1 } } });
+    const a = await db.insert("INSERT INTO users(username,password_hash,plan,role) VALUES('boss','h','free','admin')");
+    const plan = await credits.planOf(a);
+    assert.deepEqual([plan.id, plan.fullAccess, plan.unlimited, plan.topModelDailyMessages], ["admin", true, true, 0]);
+    for (const f of Object.keys(credits.FEATURES)) {
+      const c = await credits.begin(a, { feature: f, quoteCredits: 40 });
+      assert.equal(c.ok, true, f); assert.deepEqual(await c.finish({ model: "gemini-3.1-pro-preview", tier: "deep" }), { charged: 0, included: true, unlimited: true });
+    }
+    assert.equal((await credits.fairUse(a, plan)).limited, false, "no daily top-model limit even after 6 Deep answers");
+    assert.ok(!(await credits.history(a)).some(r => r.delta !== 0), "nothing deducted");
+    const s = await credits.summary(a);
+    assert.deepEqual([s.plan.label, s.plan.fullAccess, s.balance], ["Admin", true, null]);
+    assert.ok(!s.plans.some(p => p.id === "admin"), "members' plan list doesn't show an 'Admin' plan");
+    await db.run("UPDATE users SET disabled=1 WHERE id=?", a);
+    assert.equal((await credits.planOf(a)).id, "free", "a disabled admin gets nothing extra");
+    await db.run("UPDATE users SET disabled=0 WHERE id=?", a);
+    await credits.saveConfig({ adminFullAccess: false });
+    assert.equal(credits.adminFullAccessNow(), false);
+    assert.equal((await credits.planOf(a)).id, "free", "switched off: admins use their own plan");
+    assert.equal((await credits.begin(a, { feature: "chat", quoteCredits: 5 })).included, false);
+    await credits.saveConfig({ adminFullAccess: true, plans: { max: { eligible: Object.keys(credits.FEATURES), topModelDailyMessages: 30 } } });
+    assert.equal(credits.adminFullAccessNow(), true);
+  });
+
   await t("a hold left by a crash is released after 15 minutes", async () => {
     const u = await user("crashy");
     await credits.begin(u, { feature: "chat", quoteCredits: 5 });

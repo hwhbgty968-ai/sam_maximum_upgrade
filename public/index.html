@@ -474,14 +474,19 @@ $('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const
 // ---- Plan & Sam Credits: everything here comes from the server, so members see exactly the rules Sam applies ----
 let samCredits=null;
 const fmtN=n=>Number(n||0).toLocaleString('en-GB');
-function planLine(p){if(!p)return 'Personal account';return p.unlimited?`${p.label} · Unlimited ${p.creditName}`:`${p.label} · ${fmtN(p.balance)} ${p.creditName}`}
+function planLine(p){if(!p)return 'Personal account';if(p.fullAccess)return 'Full access';return p.unlimited?`${p.label} · Unlimited ${p.creditName}`:`${p.label} · ${fmtN(p.balance)} ${p.creditName}`}
 async function loadCredits(){try{samCredits=await api('/api/credits');renderPlan();updateCreditHint()}catch(e){}}
 function mk(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
 function renderPlan(){
   const c=samCredits,box=$('planBox');if(!c||!box)return;box.innerHTML='';
   const name=c.creditName,p=c.plan,reset=new Date(c.resetsAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',timeZone:'UTC'});
   const head=mk('div','plan-head');head.append(mk('span','pill',p.label+' plan'));box.append(head);
-  if(p.unlimited){
+  if(p.fullAccess){
+    head.firstChild.textContent='Admin';
+    box.append(mk('div','plan-big','Full access'));
+    box.append(mk('p',null,`You're one of Sam's admins, so nothing is limited for you: no ${name} are taken, there's no daily top-model limit, every feature is included, and the per-minute message limit doesn't apply to your account.`));
+    box.append(mk('p','muted','Outside AI providers can still be busy or unavailable at times; when that happens Sam tells you and uses another model where it can. Members see the plans below. You can switch admin full access off in the admin dashboard → Plans & credits.'));
+  }else if(p.unlimited){
     box.append(mk('div','plan-big','Unlimited '+name));
     box.append(mk('p','muted',`No monthly allowance to run out of, and no ${name} are taken for the features included in ${p.label}.`));
     box.append(mk('h4',null,`Included in ${p.label}`));const ul=mk('ul');p.eligible.forEach(f=>ul.append(mk('li',null,f.label)));box.append(ul);
@@ -532,14 +537,15 @@ function estimateCredits(){
 function updateCreditHint(){
   const c=samCredits,h=$('creditHint');if(!c||!h||guestMode){h&&h.classList.add('hidden');return}
   h.classList.remove('hidden');const name=c.creditName;
+  if(c.plan.fullAccess){h.textContent='Full access (Admin)';return}
   if(c.plan.unlimited){h.textContent=`Unlimited ${name} (${c.plan.label})`;return}
   const e=estimateCredits();
   const price=e==null?'':Array.isArray(e)?(e[0]===e[1]?`${e[0]} ${name}`:`${e[0]}–${e[1]} ${name} (Auto picks)`):`${e} ${name}`;
   h.textContent=`${price?'This message: '+price+' · ':''}${fmtN(c.balance)} left`;
 }
-function creditNote(cr){if(!cr)return '';return cr.unlimited?` · included with ${samCredits?.plan?.label||'your plan'}`:` · ${cr.charged} ${cr.creditName||samCredits?.creditName||'credits'} · ${fmtN(cr.balance)} left`}
+function creditNote(cr){if(!cr)return '';if(cr.unlimited&&samCredits?.plan?.fullAccess)return ' · full access';return cr.unlimited?` · included with ${samCredits?.plan?.label||'your plan'}`:` · ${cr.charged} ${cr.creditName||samCredits?.creditName||'credits'} · ${fmtN(cr.balance)} left`}
 let samIsAdmin=false;
-function afterCharge(cr){if(!cr||!samCredits)return;if(!cr.unlimited&&cr.balance!=null)samCredits.balance=cr.balance;updateCreditHint();$('profileSub').textContent=(samIsAdmin?'Admin · ':'')+planLine({label:samCredits.plan.label,unlimited:samCredits.plan.unlimited,balance:samCredits.balance,creditName:samCredits.creditName})}
+function afterCharge(cr){if(!cr||!samCredits)return;if(!cr.unlimited&&cr.balance!=null)samCredits.balance=cr.balance;updateCreditHint();$('profileSub').textContent=(samIsAdmin?'Admin · ':'')+planLine({label:samCredits.plan.label,unlimited:samCredits.plan.unlimited,fullAccess:samCredits.plan.fullAccess,balance:samCredits.balance,creditName:samCredits.creditName})}
 ['modelPick','speedPick'].forEach(id=>$(id).addEventListener('change',updateCreditHint));
 // ---- Guest mode: plain chat, Fast models, a daily allowance, nothing saved ----
 function renderGuestBar(){const g=guestInfo||{};const left=g.remaining??0;$('guestLeft').textContent=left>0?`${left} of ${g.limit} free messages left today`:'no free messages left today';$('guestBar').classList.toggle('out',left<=0)}
