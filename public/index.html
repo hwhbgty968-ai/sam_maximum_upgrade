@@ -266,6 +266,31 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
   .quick button{white-space:nowrap}
   .composer-bar{flex-wrap:nowrap;gap:4px}.cbtn{padding:8px 8px}.cbtn .lbl{display:none}#autoLabel{max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.send{width:42px;height:42px}#prompt{font-size:16px}.auto-menu{width:min(290px,80vw)}
 }
+
+/* Creator-only Private Mode: preserves the Ezer layout, with a deeper night palette. */
+body.owner-private{--bg:#03050a;--side:#05080f;--panel:#090e18;--panel2:#0b1320;--line:#121d2d;--line2:#22344d;--text:#f1f5fc;--muted:#9baac0;--dim:#65758c;--accent:#75c8ee;--accent-ink:#06131c;--grad:linear-gradient(135deg,#3baedb 0%,#8271db 100%)}
+body.owner-private .sidebar{box-shadow:inset -1px 0 0 #263957}
+body.owner-private #ownerModeToggle{border-left:3px solid #75c8ee;background:#0c1929;color:#bfeaff}
+.studio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:14px 0}
+.studio-card{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:16px;min-width:0}
+.studio-card h3{margin:0 0 8px;font-size:16px}
+.studio-form{display:grid;gap:9px;margin-top:10px}
+.studio-form textarea{min-height:100px}
+.studio-list{display:grid;gap:8px;margin-top:12px}
+.studio-item{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--panel2)}
+.studio-item .main-copy{min-width:0;flex:1}
+.studio-item .main-copy b{display:block;overflow-wrap:anywhere}
+.studio-item .actions{display:flex;gap:6px;flex-wrap:wrap}
+.studio-item button{font-size:12px;padding:6px 9px}
+.studio-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:12px}
+.studio-gallery figure{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
+.studio-gallery img{display:block;width:100%;aspect-ratio:1;object-fit:cover;background:var(--panel2)}
+.studio-gallery figcaption{padding:8px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.builder-preview{width:100%;height:min(68vh,720px);border:1px solid var(--line2);border-radius:14px;background:#fff}
+.studio-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.studio-message{font-size:13px;color:var(--muted);min-height:18px;margin-top:8px}
+@media(max-width:600px){.studio-grid{grid-template-columns:1fr}.builder-preview{height:60vh}}
+
 </style></head>
 
 <body>
@@ -329,6 +354,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <button id="newChat" class="new-chat"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>New chat</button>
 <nav class="nav" aria-label="Ezer sections">
 <button class="nav-item hidden" id="creatorNav" data-tab="creator"><svg class="ic" aria-hidden="true"><use href="#i-crown"/></svg>Creator</button>
+<button class="nav-item hidden" id="ownerModeToggle" type="button" aria-pressed="false" title="Creator-only advanced response mode. This is not incognito: your Ezer chats are still saved."><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>Private Mode · OFF</span></button>
 <button class="nav-item" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Chat history</button>
 <button class="nav-item" data-tab="market"><svg class="ic" aria-hidden="true"><use href="#i-apps"/></svg>Marketplace</button>
 <button class="nav-item" data-tool="research"><svg class="ic" aria-hidden="true"><use href="#i-flask"/></svg>Research</button>
@@ -336,9 +362,9 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <button class="nav-item" data-tool="coding"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Coding</button>
 <button class="nav-item" data-tool="vision"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg>File analysis</button>
 <button class="nav-item" data-tool="creative"><svg class="ic" aria-hidden="true"><use href="#i-palette"/></svg>Creative studio</button>
-<button class="nav-item" data-tool="image" disabled title="Coming in a later update"><svg class="ic" aria-hidden="true"><use href="#i-photo"/></svg>Image generation<span class="soon-tag">SOON</span></button>
-<button class="nav-item" disabled title="Coming in a later update"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Productivity<span class="soon-tag">SOON</span></button>
-<button class="nav-item" disabled title="Coming in a later update"><svg class="ic" aria-hidden="true"><use href="#i-apps"/></svg>App Builder<span class="soon-tag">SOON</span></button>
+<button class="nav-item" data-tab="images"><svg class="ic" aria-hidden="true"><use href="#i-photo"/></svg>Image Studio</button>
+<button class="nav-item" data-tab="productivity"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg>Productivity</button>
+<button class="nav-item" data-tab="appbuilder"><svg class="ic" aria-hidden="true"><use href="#i-apps"/></svg>App Builder</button>
 <div class="nav-sep"></div>
 <button class="nav-item" data-tab="memory"><svg class="ic" aria-hidden="true"><use href="#i-brain"/></svg>Memory</button>
 <button class="nav-item" data-tab="pinned"><svg class="ic" aria-hidden="true"><use href="#i-pin"/></svg>Pinned</button>
@@ -358,6 +384,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <button id="menuBtn" class="icon-btn mobile-only" aria-label="Open menu"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg></button>
 <span id="systemStatus" class="pill status">Sam · Online &amp; Learning</span>
 <button id="autoPill" class="pill" title="Automatically switch to coding, research, web or tutor help"><svg class="ic" aria-hidden="true"><use href="#i-sparkle"/></svg>Auto-detect</button>
+
 <span id="modeLabel" class="pill mode desk">Normal chat</span>
 <span class="grow"></span>
 <span id="aiState" class="muted desk"></span>
@@ -443,6 +470,79 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <div class="c-scroll" style="max-height:300px;overflow:auto"><table class="c-table" id="mkActivity"></table></div>
 </section>
 
+
+<section id="imagesSection" class="section page">
+<h2>Image Generation Studio</h2>
+<p class="muted">Create and edit images with Sam, then keep your creations in your private Ezer gallery. Image generation requires a configured image provider and may use paid provider credits.</p>
+<div id="imageProviderStatus" class="notice">Checking image provider…</div>
+<div class="studio-grid">
+  <div class="studio-card">
+    <h3>Generate an image</h3>
+    <div class="studio-form">
+      <textarea id="imagePrompt" class="field" maxlength="2000" placeholder="Describe the image you want Sam to create…"></textarea>
+      <select id="imageSize" class="pick"><option value="1024x1024">Square</option><option value="1536x1024">Landscape</option><option value="1024x1536">Portrait</option></select>
+      <button id="imageGenerate" class="primary">Generate image</button>
+      <div id="imageGenerateMsg" class="studio-message"></div>
+    </div>
+  </div>
+  <div class="studio-card">
+    <h3>Edit an image</h3>
+    <p class="muted">Choose an image and describe the change you want.</p>
+    <div class="studio-form">
+      <input id="imageEditFile" class="field" type="file" accept="image/png,image/jpeg,image/webp">
+      <textarea id="imageEditPrompt" class="field" maxlength="2000" placeholder="What should change?"></textarea>
+      <button id="imageEdit" class="secondary">Edit selected image</button>
+      <div id="imageEditMsg" class="studio-message"></div>
+    </div>
+  </div>
+</div>
+<div class="studio-card">
+  <div class="row"><h3 style="margin:0">Your image gallery</h3><button id="imageRefresh" class="secondary" style="flex:0 0 auto">Refresh</button></div>
+  <div id="imageGallery" class="studio-gallery"><p class="muted">Your generated images will appear here.</p></div>
+</div>
+</section>
+
+<section id="productivitySection" class="section page">
+<h2>Productivity Centre</h2>
+<p class="muted">Keep projects, tasks and notes together. Your saved items are private to your Ezer account.</p>
+<div class="studio-grid">
+  <div class="studio-card">
+    <h3>Projects</h3>
+    <div class="studio-form"><input id="projectName" class="field" maxlength="80" placeholder="New project name"><textarea id="projectDescription" class="field" maxlength="2000" placeholder="What is this project about?"></textarea><button id="projectCreate" class="primary">Create project</button><div id="projectMsg" class="studio-message"></div></div>
+    <div id="projectList" class="studio-list"></div>
+  </div>
+  <div class="studio-card">
+    <h3>Tasks</h3>
+    <div class="studio-form"><input id="taskTitle" class="field" maxlength="160" placeholder="What needs doing?"><input id="taskDue" class="field" type="date"><select id="taskProject" class="pick"><option value="">No project</option></select><select id="taskPriority" class="pick"><option value="normal">Normal priority</option><option value="high">High priority</option><option value="low">Low priority</option></select><button id="taskCreate" class="primary">Add task</button><div id="taskMsg" class="studio-message"></div></div>
+    <div id="taskList" class="studio-list"></div>
+  </div>
+  <div class="studio-card">
+    <h3>Notes</h3>
+    <div class="studio-form"><input id="noteTitle" class="field" maxlength="160" placeholder="Note title"><textarea id="noteBody" class="field" maxlength="30000" placeholder="Write your note…"></textarea><select id="noteProject" class="pick"><option value="">No project</option></select><button id="noteCreate" class="primary">Save note</button><div id="noteMsg" class="studio-message"></div></div>
+    <div id="noteList" class="studio-list"></div>
+  </div>
+</div>
+</section>
+
+<section id="appbuilderSection" class="section page">
+<h2>Ezer App Builder</h2>
+<p class="muted">Describe a website or browser app and Sam will build a working front-end prototype. This first version runs in a secure browser preview. Server backends, user logins, external APIs and public deployment are not included yet.</p>
+<div class="studio-grid">
+  <div class="studio-card">
+    <h3>Build or improve an app</h3>
+    <div class="studio-form"><input id="builderTitle" class="field" maxlength="80" placeholder="App name"><input id="builderDescription" class="field" maxlength="2000" placeholder="Short description (optional)"><textarea id="builderPrompt" class="field" maxlength="4000" placeholder="Describe what the app should do, how it should look and what users should be able to do…"></textarea><button id="builderGenerate" class="primary">Build with Sam</button><div id="builderMsg" class="studio-message"></div></div>
+    <h3 style="margin-top:20px">Your apps</h3><div id="builderApps" class="studio-list"></div>
+  </div>
+  <div class="studio-card">
+    <h3 id="builderPreviewTitle">Live preview</h3>
+    <p class="muted">Preview scripts run in an isolated frame. They cannot access your Ezer account or call external services.</p>
+    <iframe id="builderPreview" class="builder-preview" title="App Builder preview" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe>
+    <div class="studio-toolbar"><button id="builderDownload" class="secondary" disabled>Download HTML</button><button id="builderVersions" class="secondary" disabled>Version history</button><button id="builderDelete" class="secondary danger" disabled>Delete app</button></div>
+    <div id="builderVersionList" class="studio-list"></div>
+  </div>
+</div>
+</section>
+
 <section id="historySection" class="section page">
 <h2>Chat history</h2><p class="muted">All your chats. Use ⋯ to rename, pin, archive or delete. Search from the sidebar.</p>
 <div id="historyList"></div>
@@ -514,7 +614,7 @@ async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'C
 let registering=false,guestMode=false,guestInfo=null,guestAvailable=false;
 function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
 function showAuth(msg='',mode=false){guestMode=false;document.body.classList.remove('guest');setAuthMode(mode);$('guestBtn').classList.toggle('hidden',!guestAvailable);$('guestBtn').textContent=guestInfo?'← Back to my guest chat':'Try Ezer without an account →';$('keepGuestRow').classList.toggle('hidden',!(guestInfo&&guestInfo.hasChat));$('keepGuest').checked=false;$('adminLink').classList.add('hidden');document.body.classList.remove('drawer-open');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
-function showApp(username){guestMode=false;guestInfo=null;document.body.classList.remove('guest');$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels).then(loadCredits);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);samIsAdmin=!!s.isAdmin;samIsOwner=!!s.isOwner;$('creatorNav').classList.toggle('hidden',!s.isOwner);$('creatorLink').classList.toggle('hidden',!s.isOwner);$('deleteAccount').classList.toggle('hidden',!!s.isOwner);if(s.isOwner)$('profileSub').textContent='Creator · '+planLine(s.plan);$('profileSub').textContent=(s.isAdmin?'Admin · ':'')+planLine(s.plan);$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
+function showApp(username){guestMode=false;guestInfo=null;document.body.classList.remove('guest');$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels).then(loadCredits);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);samIsAdmin=!!s.isAdmin;samIsOwner=!!s.isOwner;$('ownerModeToggle').classList.toggle('hidden',!samIsOwner);if(!samIsOwner)ownerModeOn=false;renderOwnerModeButton();$('creatorNav').classList.toggle('hidden',!s.isOwner);$('creatorLink').classList.toggle('hidden',!s.isOwner);$('deleteAccount').classList.toggle('hidden',!!s.isOwner);if(s.isOwner)$('profileSub').textContent='Creator · '+planLine(s.plan);$('profileSub').textContent=(s.isAdmin?'Admin · ':'')+planLine(s.plan);$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
 async function boot(){try{const s=await api('/api/status');guestAvailable=!!s.guestMode;guestInfo=s.guest;if(s.loggedIn)showApp(s.username);else if(s.guest)showGuest();else showAuth();const n=(s.providers||[]).length;$('aiState').textContent=s.aiConfigured?n+' AI provider'+(n===1?'':'s'):'No AI key configured';$('systemStatus').textContent=s.aiConfigured?'Sam · Online & Learning':'Sam · Setup needed';$('systemStatus').classList.toggle('warn',!s.aiConfigured);$('chipOnline').textContent=s.aiConfigured?'Online':'AI offline';$('chipOnline').classList.toggle('on',!!s.aiConfigured)}catch(e){showAuth('Could not reach the Ezer server. Start it using npm start.')}} 
 const keepGuestChoice=()=>!$('keepGuestRow').classList.contains('hidden')&&$('keepGuest').checked;
 async function afterAuth(d){let inv=null;try{inv=sessionStorage.getItem('ezer.invite')}catch{}if(inv){location.href='/invite#t='+inv;return}showApp(d.username);if(d.guestChatId){await loadConversations().catch(()=>{});openConversation(d.guestChatId).catch(()=>{})}}
@@ -705,7 +805,7 @@ async function streamChat(body){
   activeController=new AbortController();
   let r;
   const url=guestMode?'/api/guest/chat':'/api/chat';
-  const payload=guestMode?{message:body.message}:{...body,model:$('modelPick').value,speed:$('speedPick').value,...(body.mode==='council'||body.council?{councilModels:councilSelection()}:{})};
+  const payload=guestMode?{message:body.message}:{...body,ownerMode:!!(samIsOwner&&ownerModeOn),model:$('modelPick').value,speed:$('speedPick').value,...(body.mode==='council'||body.council?{councilModels:councilSelection()}:{})};
   try{r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:activeController.signal})}
   catch(e){if(e.name==='AbortError')return {answer:'',streamed:true,stopped:true};throw Error('Can\'t reach Ezer\'s server. Check your connection.')}
   if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(guestMode&&d.code==='GUEST_REQUIRED'){guestEnded();throw Error(d.error)}if(guestMode&&d.code==='GUEST_LIMIT'){guestInfo={...guestInfo,remaining:0};renderGuestBar()}if(d.code==='NO_CREDITS'||d.code==='NOT_INCLUDED')loadCredits();if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
@@ -1057,7 +1157,7 @@ $('voiceToggle').onclick=()=>{voiceOn=!voiceOn;$('voiceToggle').textContent='�
 $('mic').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Speech recognition is not supported in this browser. Try a recent Chrome browser.');return}recognition=new SR();recognition.lang='en-GB';recognition.onresult=e=>{$('prompt').value=e.results[0][0].transcript};recognition.onerror=()=>alert('Microphone unavailable. Check browser permission.');recognition.start()};
 async function loadMyUsage(){try{const u=await api('/api/usage');$('myUsage').textContent=`Your AI usage: ${u.today.requests} request${u.today.requests===1?'':'s'} today, ${u.last30Days.requests} in the last 30 days (~${(u.last30Days.input_tokens+u.last30Days.output_tokens).toLocaleString()} tokens).`}catch(e){}}
 document.querySelectorAll('[data-tab="settings"]').forEach(b=>b.addEventListener('click',loadMyUsage));
-$('claimBtn').onclick=async()=>{$('claimMsg').textContent='';$('claimBtn').disabled=true;try{await api('/api/admin/claim',{method:'POST',body:JSON.stringify({code:$('claimCode').value})});$('claimCode').value='';$('claimMsg').textContent='✅ You are now Ezer\'s Creator. The Creator area and Admin dashboard are in your profile menu.';$('adminLink').classList.remove('hidden');$('creatorNav').classList.remove('hidden');$('creatorLink').classList.remove('hidden');samIsOwner=true;samIsAdmin=true;$('profileSub').textContent='Creator';setTimeout(()=>$('claimBox').classList.add('hidden'),4000)}catch(e){$('claimMsg').textContent=e.message}finally{$('claimBtn').disabled=false}};
+$('claimBtn').onclick=async()=>{$('claimMsg').textContent='';$('claimBtn').disabled=true;try{await api('/api/admin/claim',{method:'POST',body:JSON.stringify({code:$('claimCode').value})});$('claimCode').value='';$('claimMsg').textContent='✅ You are now Ezer\'s Creator. The Creator area and Admin dashboard are in your profile menu.';$('adminLink').classList.remove('hidden');$('creatorNav').classList.remove('hidden');$('creatorLink').classList.remove('hidden');samIsOwner=true;samIsAdmin=true;$('profileSub').textContent='Creator';$('ownerModeToggle').classList.remove('hidden');renderOwnerModeButton();setTimeout(()=>$('claimBox').classList.add('hidden'),4000)}catch(e){$('claimMsg').textContent=e.message}finally{$('claimBtn').disabled=false}};
 $('pwChange').onclick=async()=>{$('pwMsg').textContent='';try{await api('/api/account/password',{method:'POST',body:JSON.stringify({current:$('pwCurrent').value,next:$('pwNew').value})});$('pwCurrent').value=$('pwNew').value='';$('pwMsg').textContent='✅ Password updated. Other devices have been signed out.'}catch(e){$('pwMsg').textContent=e.message}};
 $('exportData').onclick=()=>{window.location.href='/api/account/export'};
 $('deleteAccount').onclick=()=>{$('deleteBox').classList.toggle('hidden');$('deletePw').focus()};
@@ -1154,8 +1254,8 @@ function renderMarket(){
     act.append(msg);c.append(act);g.append(c)})}
 $('mkSearch').oninput=renderMarket;$('mkShow').onchange=renderMarket;
 // ---- v3.4 redesign: sections, welcome, composer toggles, drawer ----
-const SECTIONS=['chat','history','memory','pinned','library','models','settings','creator','market'];
-let webOn=false,councilToggleOn=false,lastConvs=[];
+const SECTIONS=['chat','history','memory','pinned','library','models','settings','creator','market','images','productivity','appbuilder'];
+let webOn=false,councilToggleOn=false,lastConvs=[],ownerModeOn=false;
 function showSection(name){
   if(!SECTIONS.includes(name))name='chat';
   document.querySelectorAll('.nav-item[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===name));
@@ -1163,7 +1263,7 @@ function showSection(name){
   $('profileMenu').classList.add('hidden');closeDrawer();
   if(name==='memory')loadMemories();if(name==='pinned')loadPins();if(name==='library'||name==='models')loadLibrary();
   if(name==='settings'){loadSettings();loadCredits()}
-  if(name==='creator')loadCreator();if(name==='market')loadMarket();if(name==='history')loadHistoryView();
+  if(name==='creator')loadCreator();if(name==='market')loadMarket();if(name==='history')loadHistoryView();if(name==='images')loadImageStudio();if(name==='productivity')loadProductivity();if(name==='appbuilder')loadAppBuilder();
 }
 function showWelcome(on){$('welcome').hidden=!on;document.querySelector('.quick').classList.toggle('hidden',!on);if(on){renderChips();renderRecent()}}
 function renderChips(){$('chipMemory').textContent='Memory '+(samSettings.useMemories===false?'off':'on');$('chipWeb').textContent='Web '+(webOn?'on':'off');$('chipAuto').textContent=samSettings.autoMode===false?'Auto routing off':'Auto routing'}
@@ -1191,6 +1291,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('autoMenu').class
 $('profileBtn').onclick=e=>{e.stopPropagation();const m=$('profileMenu');m.classList.toggle('hidden');$('profileBtn').setAttribute('aria-expanded',String(!m.classList.contains('hidden')))};
 document.addEventListener('click',()=>{$('autoMenu').classList.add('hidden');$('profileMenu').classList.add('hidden')});
 $('autoPill').onclick=async()=>{try{const d=await api('/api/settings',{method:'PUT',body:JSON.stringify({autoMode:samSettings.autoMode===false})});samSettings=d.settings;applyAppearance(samSettings);if($('setAuto'))$('setAuto').checked=samSettings.autoMode}catch(e){alert(e.message)}};
+function renderOwnerModeButton(){const b=$('ownerModeToggle');if(!b)return;b.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>Private Mode · '+(ownerModeOn?'ON':'OFF')+'</span>';b.classList.toggle('active',ownerModeOn);document.body.classList.toggle('owner-private',!!(ownerModeOn&&samIsOwner));b.setAttribute('aria-pressed',String(ownerModeOn));b.title='Creator-only advanced response mode. Not incognito: your Ezer chats are still saved.'}
+$('ownerModeToggle').onclick=()=>{if(!samIsOwner)return;ownerModeOn=!ownerModeOn;renderOwnerModeButton();if(ownerModeOn)addMsg('🔒 **Private Mode enabled.** Sam will use a more direct, advanced working style and the Creator permissions available to your account. Ezer still saves this conversation. Core safety, privacy and security protections remain active.','sam')};
 function closeDrawer(){document.body.classList.remove('drawer-open')}
 $('menuBtn').onclick=e=>{e.stopPropagation();document.body.classList.toggle('drawer-open')};
 $('scrim').onclick=closeDrawer;
@@ -1206,5 +1308,180 @@ document.querySelectorAll('[data-task]').forEach(b=>b.onclick=async()=>{
     if(t==='code'){await createConversation('coding');fillPrompt('Here is my code and the error. Find the bug and explain the fix:\n\n')}
     if(t==='plan'){fillPrompt('Help me plan my week. My deadlines and commitments are: ')}
   }catch(e){addMsg(e.message,'sam')}});
+
+// ---------------- Ezer Image Generation Studio ----------------
+let imageStudioData=null;
+async function loadImageStudio(){
+  const status=$('imageProviderStatus'),gallery=$('imageGallery');
+  if(status)status.textContent='Checking image provider…';
+  try{
+    const [s,g]=await Promise.all([api('/api/images/status'),api('/api/images')]);
+    imageStudioData=g.images||[];
+    status.textContent=s.configured?'Connected: '+s.model+' · Images are stored in Ezer’s server storage.':'Image generation is not connected. The Ezer Creator needs to add EZER_IMAGE_API_KEY or a working OPENAI_API_KEY in the server environment.';
+    renderImageGallery(imageStudioData);
+  }catch(e){if(status)status.textContent=e.message;if(gallery)gallery.textContent='Could not load your image gallery.'}
+}
+function renderImageGallery(images){
+  const box=$('imageGallery');box.innerHTML='';
+  if(!images||!images.length){box.append(mk('p','muted','No images yet. Generate or edit an image to start your gallery.'));return}
+  images.forEach(item=>{
+    const fig=document.createElement('figure'),img=document.createElement('img'),cap=document.createElement('figcaption'),actions=document.createElement('div'),del=document.createElement('button');
+    img.loading='lazy';img.alt=item.prompt||'Generated image';img.src='/api/images/'+encodeURIComponent(item.id)+'/content';
+    cap.textContent=(item.prompt||'Generated image').slice(0,120)+' · '+new Date(item.created_at.replace(' ','T')+'Z').toLocaleDateString('en-GB');
+    actions.className='studio-toolbar';del.className='secondary danger';del.textContent='Delete';del.onclick=async()=>{if(!confirm('Delete this image from your Ezer gallery?'))return;try{await api('/api/images/'+item.id,{method:'DELETE'});loadImageStudio()}catch(e){alert(e.message)}};
+    actions.append(del);fig.append(img,cap,actions);box.append(fig);
+  });
+}
+$('imageGenerate').onclick=async()=>{
+  const msg=$('imageGenerateMsg'),button=$('imageGenerate');msg.textContent='';
+  if(!$('imagePrompt').value.trim()){msg.textContent='Describe the image first.';return}
+  button.disabled=true;button.textContent='Generating…';
+  try{const d=await api('/api/images/generate',{method:'POST',body:JSON.stringify({prompt:$('imagePrompt').value,size:$('imageSize').value})});msg.textContent='Image generated and saved to your gallery.';afterCharge(d.credits);loadCredits();await loadImageStudio()}
+  catch(e){msg.textContent=e.message}
+  finally{button.disabled=false;button.textContent='Generate image'}
+};
+$('imageEdit').onclick=async()=>{
+  const msg=$('imageEditMsg'),button=$('imageEdit'),file=$('imageEditFile').files[0];
+  msg.textContent='';
+  if(!file){msg.textContent='Choose a PNG, JPEG or WebP image first.';return}
+  if(!$('imageEditPrompt').value.trim()){msg.textContent='Describe the changes you want.';return}
+  const fd=new FormData();fd.append('image',file);fd.append('prompt',$('imageEditPrompt').value);fd.append('size',$('imageSize').value);
+  button.disabled=true;button.textContent='Editing…';
+  try{
+    const r=await fetch('/api/images/edit',{method:'POST',body:fd});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===401)throw authExpired(d);
+    if(!r.ok)throw Error(d.error||'Image editing failed.');
+    msg.textContent='Edited image saved to your gallery.';afterCharge(d.credits);loadCredits();await loadImageStudio();
+  }catch(e){msg.textContent=e.message}
+  finally{button.disabled=false;button.textContent='Edit selected image'}
+};
+$('imageRefresh').onclick=loadImageStudio;
+
+// ---------------- Ezer Productivity Centre ----------------
+let workspaceState={projects:[],tasks:[],notes:[]};
+async function loadProductivity(){
+  try{
+    const [p,t,n]=await Promise.all([api('/api/workspaces/projects'),api('/api/workspaces/tasks'),api('/api/workspaces/notes')]);
+    workspaceState={projects:p.projects||[],tasks:t.tasks||[],notes:n.notes||[]};
+    renderWorkspace();
+  }catch(e){$('projectList').textContent=e.message;$('taskList').textContent=e.message;$('noteList').textContent=e.message}
+}
+function refillProjectSelect(selectId){
+  const sel=$(selectId),current=sel.value;sel.innerHTML='<option value="">No project</option>';
+  workspaceState.projects.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.append(o)});
+  if([...sel.options].some(o=>o.value===current))sel.value=current;
+}
+function renderWorkspace(){
+  refillProjectSelect('taskProject');refillProjectSelect('noteProject');
+  const projects=$('projectList');projects.innerHTML='';
+  if(!workspaceState.projects.length)projects.append(mk('p','muted','Create a project to organise related work.'));
+  workspaceState.projects.forEach(p=>{
+    const row=mk('div','studio-item'),copy=mk('div','main-copy'),actions=mk('div','actions'),del=mk('button','secondary danger','Delete');
+    copy.append(mk('b',null,p.name),mk('div','muted',p.description||((p.open_tasks||0)+' open tasks')));
+    del.onclick=async()=>{if(!confirm('Delete this project? Its tasks and notes will remain, but become unassigned.'))return;try{await api('/api/workspaces/projects/'+p.id,{method:'DELETE'});await loadProductivity()}catch(e){alert(e.message)}};
+    actions.append(del);row.append(copy,actions);projects.append(row);
+  });
+  const tasks=$('taskList');tasks.innerHTML='';
+  if(!workspaceState.tasks.length)tasks.append(mk('p','muted','Your tasks will appear here.'));
+  workspaceState.tasks.forEach(t=>{
+    const row=mk('div','studio-item'),copy=mk('div','main-copy'),actions=mk('div','actions');
+    copy.append(mk('b',null,t.title),mk('div','muted',(t.project_name?t.project_name+' · ':'')+(t.priority||'normal')+' priority'+(t.due_at?' · Due '+new Date(t.due_at).toLocaleDateString('en-GB'):'')));
+    if(t.description)copy.append(mk('div','muted',t.description));
+    const status=mk('button','secondary',t.status==='done'?'Reopen':'Complete');status.onclick=async()=>{try{await api('/api/workspaces/tasks/'+t.id,{method:'PATCH',body:JSON.stringify({status:t.status==='done'?'todo':'done'})});await loadProductivity()}catch(e){alert(e.message)}};
+    const del=mk('button','secondary danger','Delete');del.onclick=async()=>{try{await api('/api/workspaces/tasks/'+t.id,{method:'DELETE'});await loadProductivity()}catch(e){alert(e.message)}};
+    actions.append(status,del);row.append(copy,actions);tasks.append(row);
+  });
+  const notes=$('noteList');notes.innerHTML='';
+  if(!workspaceState.notes.length)notes.append(mk('p','muted','Your saved notes will appear here.'));
+  workspaceState.notes.forEach(n=>{
+    const row=mk('div','studio-item'),copy=mk('div','main-copy'),actions=mk('div','actions');
+    copy.append(mk('b',null,n.title),mk('div','muted',(n.body||'').slice(0,260)));
+    const del=mk('button','secondary danger','Delete');del.onclick=async()=>{if(!confirm('Delete this note?'))return;try{await api('/api/workspaces/notes/'+n.id,{method:'DELETE'});await loadProductivity()}catch(e){alert(e.message)}};
+    actions.append(del);row.append(copy,actions);notes.append(row);
+  });
+}
+$('projectCreate').onclick=async()=>{
+  const msg=$('projectMsg');msg.textContent='';
+  try{await api('/api/workspaces/projects',{method:'POST',body:JSON.stringify({name:$('projectName').value,description:$('projectDescription').value})});$('projectName').value='';$('projectDescription').value='';await loadProductivity();msg.textContent='Project saved.'}
+  catch(e){msg.textContent=e.message}
+};
+$('taskCreate').onclick=async()=>{
+  const msg=$('taskMsg');msg.textContent='';
+  try{const due=$('taskDue').value?new Date($('taskDue').value+'T12:00:00').toISOString():null;await api('/api/workspaces/tasks',{method:'POST',body:JSON.stringify({title:$('taskTitle').value,dueAt:due,projectId:$('taskProject').value||null,priority:$('taskPriority').value})});$('taskTitle').value='';$('taskDue').value='';await loadProductivity();msg.textContent='Task saved.'}
+  catch(e){msg.textContent=e.message}
+};
+$('noteCreate').onclick=async()=>{
+  const msg=$('noteMsg');msg.textContent='';
+  try{await api('/api/workspaces/notes',{method:'POST',body:JSON.stringify({title:$('noteTitle').value,body:$('noteBody').value,projectId:$('noteProject').value||null})});$('noteTitle').value='';$('noteBody').value='';await loadProductivity();msg.textContent='Note saved.'}
+  catch(e){msg.textContent=e.message}
+};
+
+// ---------------- Ezer App Builder v1 ----------------
+let currentBuilderApp=null;
+function previewBuilderHtml(raw){
+  const frame=$('builderPreview');
+  const csp='<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: blob:; media-src data: blob:; connect-src \'none\'; font-src \'none\'; object-src \'none\'; frame-src \'none\'; worker-src \'none\'; base-uri \'none\'; form-action \'none\'">';
+  let html=String(raw||'');
+  if(/<head[^>]*>/i.test(html))html=html.replace(/<head([^>]*)>/i,'<head$1>'+csp);
+  else html=csp+html;
+  frame.srcdoc=html;
+}
+async function loadBuilderList(){
+  const box=$('builderApps');box.innerHTML='';
+  try{
+    const d=await api('/api/app-builder/apps');
+    if(!d.apps.length)box.append(mk('p','muted','Your saved apps will appear here.'));
+    d.apps.forEach(a=>{
+      const row=mk('div','studio-item'),copy=mk('div','main-copy'),actions=mk('div','actions'),open=mk('button','secondary','Open');
+      copy.append(mk('b',null,a.title),mk('div','muted',a.description||'Browser app prototype'));
+      open.onclick=()=>openBuilderApp(a.id);
+      actions.append(open);row.append(copy,actions);box.append(row);
+    });
+  }catch(e){box.textContent=e.message}
+}
+async function openBuilderApp(id){
+  const msg=$('builderMsg');msg.textContent='';
+  try{const d=await api('/api/app-builder/apps/'+id);currentBuilderApp=d.app;$('builderTitle').value=d.app.title;$('builderDescription').value=d.app.description||'';$('builderPrompt').value='';$('builderPreviewTitle').textContent=d.app.title;previewBuilderHtml(d.app.html);$('builderDownload').disabled=false;$('builderVersions').disabled=false;$('builderDelete').disabled=false;$('builderVersionList').innerHTML='';msg.textContent='Opened saved app.'}
+  catch(e){msg.textContent=e.message}
+}
+$('builderGenerate').onclick=async()=>{
+  const msg=$('builderMsg'),button=$('builderGenerate');msg.textContent='';
+  if(!$('builderPrompt').value.trim()){msg.textContent='Describe the app you want built.';return}
+  button.disabled=true;button.textContent='Building… Sam is creating your app';
+  try{
+    const body={title:$('builderTitle').value,description:$('builderDescription').value,prompt:$('builderPrompt').value};
+    if(currentBuilderApp)body.appId=currentBuilderApp.id;
+    const d=await api('/api/app-builder/generate',{method:'POST',body:JSON.stringify(body)});
+    currentBuilderApp=d.app;previewBuilderHtml(d.app.html);$('builderPreviewTitle').textContent=d.app.title;$('builderDownload').disabled=false;$('builderVersions').disabled=false;$('builderDelete').disabled=false;
+    msg.textContent='App built and saved. Your previous versions are kept.';loadCredits();await loadBuilderList();
+  }catch(e){msg.textContent=e.message}
+  finally{button.disabled=false;button.textContent='Build with Sam'}
+};
+$('builderDownload').onclick=()=>{
+  if(!currentBuilderApp)return;
+  const blob=new Blob([currentBuilderApp.html],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=(currentBuilderApp.title||'ezer-app').replace(/[^a-z0-9-_]+/gi,'-').toLowerCase()+'.html';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
+};
+$('builderVersions').onclick=async()=>{
+  if(!currentBuilderApp)return;const box=$('builderVersionList');box.innerHTML='Loading versions…';
+  try{
+    const d=await api('/api/app-builder/apps/'+currentBuilderApp.id+'/versions');box.innerHTML='';
+    if(!d.versions.length){box.append(mk('p','muted','No saved versions yet.'));return}
+    d.versions.forEach(v=>{
+      const row=mk('div','studio-item'),copy=mk('div','main-copy'),restore=mk('button','secondary','Restore');
+      copy.append(mk('b',null,'Version '+v.id),mk('div','muted',new Date(v.created_at.replace(' ','T')+'Z').toLocaleString('en-GB')+(v.prompt?' · '+v.prompt.slice(0,90):'')));
+      restore.onclick=async()=>{if(!confirm('Restore this earlier version? A new version will be saved.'))return;try{const r=await api('/api/app-builder/apps/'+currentBuilderApp.id+'/restore/'+v.id,{method:'POST',body:JSON.stringify({})});currentBuilderApp=r.app;previewBuilderHtml(r.app.html);$('builderPreviewTitle').textContent=r.app.title;box.textContent='Version restored and saved.'}catch(e){box.textContent=e.message}};
+      row.append(copy,restore);box.append(row);
+    });
+  }catch(e){box.textContent=e.message}
+};
+$('builderDelete').onclick=async()=>{
+  if(!currentBuilderApp||!confirm('Delete this app and its saved versions?'))return;
+  try{await api('/api/app-builder/apps/'+currentBuilderApp.id,{method:'DELETE'});currentBuilderApp=null;$('builderPreview').srcdoc='';$('builderPreviewTitle').textContent='Live preview';$('builderDownload').disabled=$('builderVersions').disabled=$('builderDelete').disabled=true;$('builderVersionList').innerHTML='';$('builderMsg').textContent='App deleted.';await loadBuilderList()}
+  catch(e){$('builderMsg').textContent=e.message}
+};
+async function loadAppBuilder(){await loadBuilderList();if(!currentBuilderApp){$('builderPreview').srcdoc='';$('builderPreviewTitle').textContent='Live preview';$('builderDownload').disabled=$('builderVersions').disabled=$('builderDelete').disabled=true}}
+
 boot();
 </script></body></html>
