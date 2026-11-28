@@ -329,6 +329,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <button id="newChat" class="new-chat"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>New chat</button>
 <nav class="nav" aria-label="Ezer sections">
 <button class="nav-item hidden" id="creatorNav" data-tab="creator"><svg class="ic" aria-hidden="true"><use href="#i-crown"/></svg>Creator</button>
+<button class="nav-item hidden" id="ownerModeToggle" type="button" aria-pressed="false" title="Creator-only advanced response mode. This is not incognito: your Ezer chats are still saved."><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>Private Mode · OFF</span></button>
 <button class="nav-item" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Chat history</button>
 <button class="nav-item" data-tab="market"><svg class="ic" aria-hidden="true"><use href="#i-apps"/></svg>Marketplace</button>
 <button class="nav-item" data-tool="research"><svg class="ic" aria-hidden="true"><use href="#i-flask"/></svg>Research</button>
@@ -358,7 +359,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <button id="menuBtn" class="icon-btn mobile-only" aria-label="Open menu"><svg class="ic" aria-hidden="true"><use href="#i-menu"/></svg></button>
 <span id="systemStatus" class="pill status">Sam · Online &amp; Learning</span>
 <button id="autoPill" class="pill" title="Automatically switch to coding, research, web or tutor help"><svg class="ic" aria-hidden="true"><use href="#i-sparkle"/></svg>Auto-detect</button>
-<button id="ownerModeToggle" class="pill hidden" type="button" title="Creator-only advanced mode. Core safety, privacy and security protections remain active.">⚡ Do Anything · OFF</button>
+
 <span id="modeLabel" class="pill mode desk">Normal chat</span>
 <span class="grow"></span>
 <span id="aiState" class="muted desk"></span>
@@ -1192,8 +1193,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('autoMenu').class
 $('profileBtn').onclick=e=>{e.stopPropagation();const m=$('profileMenu');m.classList.toggle('hidden');$('profileBtn').setAttribute('aria-expanded',String(!m.classList.contains('hidden')))};
 document.addEventListener('click',()=>{$('autoMenu').classList.add('hidden');$('profileMenu').classList.add('hidden')});
 $('autoPill').onclick=async()=>{try{const d=await api('/api/settings',{method:'PUT',body:JSON.stringify({autoMode:samSettings.autoMode===false})});samSettings=d.settings;applyAppearance(samSettings);if($('setAuto'))$('setAuto').checked=samSettings.autoMode}catch(e){alert(e.message)}};
-function renderOwnerModeButton(){const b=$('ownerModeToggle');if(!b)return;b.textContent=ownerModeOn?'⚡ Do Anything · ON':'⚡ Do Anything · OFF';b.classList.toggle('active',ownerModeOn);b.title=ownerModeOn?'Creator-only advanced mode is active. Fundamental safety, privacy and security protections remain active.':'Enable Creator-only advanced mode.'}
-$('ownerModeToggle').onclick=()=>{if(!samIsOwner)return;ownerModeOn=!ownerModeOn;renderOwnerModeButton();if(ownerModeOn)addMsg('⚡ **Creator Do Anything mode enabled.** Sam will use a more direct, advanced working style and the Owner permissions available to your account. Fundamental safety, privacy and security protections remain active.','sam')};
+function renderOwnerModeButton(){const b=$('ownerModeToggle');if(!b)return;b.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>Private Mode · '+(ownerModeOn?'ON':'OFF')+'</span>';b.classList.toggle('active',ownerModeOn);b.setAttribute('aria-pressed',String(ownerModeOn));b.title='Creator-only advanced response mode. Not incognito: your Ezer chats are still saved.'}
+$('ownerModeToggle').onclick=()=>{if(!samIsOwner)return;ownerModeOn=!ownerModeOn;renderOwnerModeButton();if(ownerModeOn)addMsg('🔒 **Private Mode enabled.** Sam will use a more direct, advanced working style and the Creator permissions available to your account. Ezer still saves this conversation. Core safety, privacy and security protections remain active.','sam')};
 function closeDrawer(){document.body.classList.remove('drawer-open')}
 $('menuBtn').onclick=e=>{e.stopPropagation();document.body.classList.toggle('drawer-open')};
 $('scrim').onclick=closeDrawer;
