@@ -162,6 +162,10 @@ These are extra requirements on top of everything below. The **Stage** column gi
 | **4.6 Plugins P1–P2 + Premium** | Plugin framework (consent, plan rules, revocation, activity log, health tests), Marketplace, Web search/Wikipedia/Weather/Calculator plugins Sam uses automatically, Premium plan (not on sale) | ✅ Done (v4.6) |
 | **4.7 Smarter routing (P3)** | Task-based model choice, "Best available" mode, AI Provider Settings page, Council settings (choose models, count, estimated cost) | ✅ Done (v4.7) |
 | **4.8 GitHub, then Notion (P4)** | Real integrations with user approval; changes always ask first | Next |
+| **A. Image Generation Studio** | Text-to-image, edit uploads, styles, backgrounds, variations, logos and posters, sizes; gallery per user; credit prices per image | Planned. Needs Gemini billing switched on (Google's image models have no free API tier; about $0.04–0.07 per image at 1K) |
+| **B. Productivity Centre** | Tasks, reminders, notes, planner; calendar and email once the Google/Microsoft integrations exist | Planned. Tasks, notes and planner are free to build now; reminders by email need SMTP; calendar and email need the domain |
+| **C. App Builder v1** | Describe an app, Sam writes it, live preview in a sandboxed frame, ask for changes, error capture with suggested fixes, version history and restore, templates, a workspace per user, export as a zip | Planned. Free to build: front-end apps that run in the browser |
+| **C2. App Builder v2** | Back ends, databases and sign-in for generated apps, publishing, GitHub export | Later. Needs a separate domain for published apps (so user apps can't touch Ezer's logins), paid container hosting, and the GitHub integration |
 | **Ezer VPN** | Needs paid servers, native apps and a legal review before any build. See the VPN plan | Planning only, needs approval |
 | **4. Research and learning** | Knowledge Base and files, Study Centre, Research Centre with a real search API, Universal Search | Next |
 | **5. Creative and productivity** | Documents and slides, images, voice, tasks and reminders; video is optional | Later |
@@ -170,3 +174,16 @@ These are extra requirements on top of everything below. The **Stage** column gi
 | **8. Testing and release** | Runs alongside every stage: unit, browser, smoke, security, restore drills | Ongoing |
 
 Each stage gets tested (including with several user accounts) and goes through a pull request before it's merged.
+
+## Ezer apps: App Builder, Image Studio, Productivity Centre (status on 28 Nov 2026)
+
+| App | Exists today | Incomplete | Missing |
+|---|---|---|---|
+| App Builder | Coding mode in chat (Sam writes and explains code) | Sidebar button is a disabled "SOON" placeholder | Project workspace, live preview, edit-by-request, error capture, versions and restore, templates, export, GitHub, publishing |
+| Image Studio | Image analysis (Sam reads uploaded images) | Sidebar button is a disabled "SOON" placeholder | Image generation and editing, variations, styles, sizes, gallery |
+| Productivity Centre | Memory, pinned chats, prompt library, Weather and Calculator plugins | Sidebar button is a disabled "SOON" placeholder | Tasks, reminders, notes, planner, calendar and email |
+
+Safety rules for the App Builder:
+- Generated apps run in a sandboxed iframe with no access to Ezer's cookies or API.
+- Published apps live on a separate domain.
+- Nothing is deployed or charged without confirmation.
