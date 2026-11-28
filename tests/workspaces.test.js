@@ -51,19 +51,22 @@ const imageStudio = require(repo + "/lib/image-studio.js");
   await t("App Builder saves apps and versions privately", async () => {
     const html1 = "<!doctype html><html><head><title>Counter</title></head><body><button>Count</button></body></html>";
     app = await W.createApp(A, { title: "Counter", description: "A test app", html: html1, prompt: "Build a counter" });
-    assert.ok(app.id);
-    assert.equal((await W.listApps(A)).length, 1, "alice app list: " + JSON.stringify(await W.listApps(A)));
-    assert.equal((await W.listApps(B)).length, 0);
-    assert.equal(await W.getApp(B, app.id), null);
+    if (!app || !app.id) throw new Error("createApp did not return saved app: " + JSON.stringify(app));
+    const aliceApps = await W.listApps(A);
+    if (aliceApps.length !== 1) throw new Error("Alice should have one app; got " + JSON.stringify(aliceApps));
+    const bobApps = await W.listApps(B);
+    if (bobApps.length !== 0) throw new Error("Bob must not see Alice's apps: " + JSON.stringify(bobApps));
+    if (await W.getApp(B, app.id) !== null) throw new Error("Bob must not fetch Alice's app.");
     const html2 = "<!doctype html><html><head><title>Timer</title></head><body><button>Start</button></body></html>";
     const updated = await W.updateApp(A, app.id, { html: html2, prompt: "Change it to a timer" });
-    assert.match(updated.html, /Timer/);
+    if (!updated || !/Timer/.test(updated.html)) throw new Error("App update failed: " + JSON.stringify(updated));
     const versions = await W.listAppVersions(A, app.id);
-    assert.equal(versions.length, 2, "app versions: " + JSON.stringify(versions));
-    assert.equal(await W.listAppVersions(B, app.id), null, "bob must not see alice versions");
+    if (!versions || versions.length !== 2) throw new Error("Expected 2 versions after create+update, got: " + JSON.stringify(versions));
+    if (await W.listAppVersions(B, app.id) !== null) throw new Error("Bob must not list Alice's versions.");
     const restored = await W.restoreAppVersion(A, app.id, versions[1].id);
-    assert.match(restored.html, /Counter/, "restored app should contain Counter HTML: " + JSON.stringify(restored));
-    assert.equal((await W.listAppVersions(A, app.id)).length, 3, "restored version history: " + JSON.stringify(await W.listAppVersions(A, app.id)));
+    if (!restored || !/Counter/.test(restored.html)) throw new Error("Restore did not restore original HTML; version rows were: " + JSON.stringify(versions) + "; app: " + JSON.stringify(restored));
+    const afterRestore = await W.listAppVersions(A, app.id);
+    if (!afterRestore || afterRestore.length !== 3) throw new Error("Expected third version after restore, got: " + JSON.stringify(afterRestore));
   });
 
   await t("deleting a project leaves its tasks and notes safely unassigned", async () => {
