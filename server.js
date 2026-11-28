@@ -10,6 +10,7 @@ const crypto = require("crypto");
 
 const { db, engine, init: initDatabase, getSessionSecret, findUserByUsername, usernameTaken, logUsage } = require("./lib/db");
 const guests = require("./lib/guests");
+const credits = require("./lib/credits");
 const { DbSessionStore } = require("./lib/session-store");
 const backup = require("./lib/backup");
 const ai = require("./lib/ai");
@@ -150,11 +151,17 @@ app.get("/api/status", wrap(async (req, res) => {
     adminSetupOpen: !!user && admin.status().setupOpen,
     username: user ? req.session.username : null,
     age: user?.age ?? null,
+    plan: user ? await planSummary(req.session.userId) : null,
     aiConfigured: ai.isConfigured(),
     providers: Object.keys(ai.providerStatus()),
     model: models[1]?.id.split(":")[1] || null
   });
 }));
+
+async function planSummary(userId) {
+  try { const s = await credits.summary(userId); return { id: s.plan.id, label: s.plan.label, unlimited: s.plan.unlimited, balance: s.balance, creditName: s.creditName }; }
+  catch (e) { logError({ route: "planSummary", userId, error: e }); return null; }
+}
 
 // ---------------- Accounts ----------------
 app.post("/api/register", registerLimiter, authLimiter, async (req, res, next) => {
@@ -353,6 +360,11 @@ app.delete("/api/history", requireAuth, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// ---------------- Plan & credits ----------------
+app.get("/api/credits", requireAuth, wrap(async (req, res) => {
+  res.json({ ...(await credits.summary(req.user.id)), history: await credits.history(req.user.id, req.query.limit) });
+}));
+
 // ---------------- Models & usage ----------------
 app.get("/api/models", requireAuth, (req, res) => res.json({ models: ai.listModels(), speeds: ["auto", "fast", "balanced", "deep"] }));
 
@@ -438,21 +450,35 @@ app.post("/api/admin/claim", requireAuth, authLimiter, api(async (req, res) => {
 }));
 
 const adminOnly = [requireAuth, requireAdmin];
-app.get("/api/admin/overview", adminOnly, wrap(async (req, res) => res.json({ ...(await admin.overview()), providers: ai.providerStatus(), guests: await guests.stats() })));
+app.get("/api/admin/overview", adminOnly, wrap(async (req, res) => res.json({ ...(await admin.overview()), providers: ai.providerStatus(), guests: await guests.stats(), credits: await credits.stats() })));
+app.get("/api/admin/credits/config", adminOnly, wrap(async (req, res) => res.json({ config: await credits.config(), defaults: credits.DEFAULTS, features: credits.FEATURES, stats: await credits.stats(), models: ai.listModels().filter(m => m.id !== "auto").map(m => ({ model: m.id.split(":")[1], tier: m.tier, provider: m.provider })) })));
+app.put("/api/admin/credits/config", adminOnly, api(async (req, res) => {
+  const config = await credits.saveConfig(req.body?.config);
+  log("info", "credits settings changed", { by: req.user.username });
+  res.json({ config });
+}));
+app.post("/api/admin/users/:id/credits", adminOnly, api(async (req, res) => {
+  const id = idOf(req.params.id);
+  const balance = id ? await credits.grant(id, req.body?.amount, req.body?.note) : null;
+  if (balance === null) return res.status(404).json({ error: "User not found." });
+  log("info", "credits adjusted", { by: req.user.username, userId: id, amount: req.body?.amount });
+  res.json({ ok: true, balance });
+}));
 app.get("/api/admin/users", adminOnly, wrap(async (req, res) => res.json(await admin.listUsers(req.query))));
 // { disabled: true|false } and/or { role: "admin"|"user" }
 app.patch("/api/admin/users/:id", adminOnly, api(async (req, res) => {
   const id = idOf(req.params.id);
   if (!id) return res.status(404).json({ error: "User not found." });
-  const { disabled, role } = req.body || {};
-  if (disabled === undefined && role === undefined) return res.status(400).json({ error: "Send { disabled: true|false } or { role: \"admin\"|\"user\" }." });
+  const { disabled, role, plan } = req.body || {};
+  if (disabled === undefined && role === undefined && plan === undefined) return res.status(400).json({ error: "Send { disabled: true|false }, { role: \"admin\"|\"user\" } or { plan: \"free\"|\"max\" }." });
+  if (plan !== undefined && !(await credits.setPlan(id, plan))) return res.status(404).json({ error: "User not found." });
   if (disabled !== undefined) {
     if (typeof disabled !== "boolean") return res.status(400).json({ error: "disabled must be true or false." });
     if (id === req.user.id) return res.status(400).json({ error: "You can't disable your own account." });
     if (!(await admin.setDisabled(id, disabled))) return res.status(404).json({ error: "User not found." });
   }
   if (role !== undefined && !(await admin.setRole(req.user.id, id, role))) return res.status(404).json({ error: "User not found." });
-  log("info", "admin changed user", { requestId: req.id, adminId: req.user.id, userId: id, disabled, role });
+  log("info", "admin changed user", { requestId: req.id, adminId: req.user.id, userId: id, disabled, role, plan });
   res.json({ ok: true });
 }));
 app.post("/api/admin/users/:id/reset-link", adminOnly, wrap(async (req, res) => {
@@ -546,6 +572,44 @@ function record(userId, mode, result, ok = true) {
   logUsage({ userId, provider: result?.provider, model: result?.model, mode, inputTokens: result?.usage?.input, outputTokens: result?.usage?.output, estimated: result?.usage?.estimated, ok });
 }
 
+// ---------------- Sam Credits helpers ----------------
+// Works out which models will answer, applies the plan's published fair-use rule (Max: after N top-model
+// messages a day, standard models are used instead — no charge, no block), prices it and reserves credits.
+async function planRoute(userId, { feature, useCouncil = false, councilModels = null, candidates = null }) {
+  const cfg = await credits.config();
+  const plan = await credits.planOf(userId, cfg);
+  const fair = await credits.fairUse(userId, plan);
+  let members = null, chair = null, fairUseNote = null;
+  const fairText = `You've used today's ${fair.limit} top-model message${fair.limit === 1 ? "" : "s"} included with ${plan.label} (fair use), so Sam answered with a standard model. No credits were used. Top models are back after midnight UTC.`;
+  if (useCouncil) {
+    ({ members, chair } = ai.councilPlan(councilModels));
+    if (fair.limited && (members.some(m => m.tier === "deep") || chair[0]?.tier === "deep")) {
+      members = members.filter(m => m.tier !== "deep");
+      if (!members.length) members = ai.routeCandidates({ speed: "balanced" }).filter(c => c.tier !== "deep").slice(0, 1);
+      chair = chair.filter(c => c.tier !== "deep");
+      fairUseNote = fairText;
+    }
+  } else if (fair.limited && candidates?.[0]?.tier === "deep") {
+    candidates = candidates.filter(c => c.tier !== "deep");
+    fairUseNote = fairText;
+  }
+  const quoteCredits = credits.quote(cfg, { feature, candidates, members, chair });
+  const charge = await credits.begin(userId, { feature, quoteCredits, description: credits.FEATURES[feature] });
+  return { cfg, plan, candidates, members, chair, fairUseNote, quoteCredits, charge };
+}
+
+// After an answer: charge what the models that really answered cost — never more than the quote.
+async function settle(charge, route, { feature, result, req, stopped = false }) {
+  try {
+    const { cfg } = route;
+    const usedDeep = result ? (result.tier === "deep" || (result.members || []).some(m => m.tier === "deep")) : false;
+    const charged = result ? credits.actual(cfg, { feature, result }) : route.quoteCredits;
+    const label = credits.FEATURES[feature] + (result?.members ? ` · ${result.members.length} models + chair` : result?.model ? ` · ${result.model}` : "") + (stopped ? " (stopped)" : "");
+    const out = await charge.finish({ charged, model: result?.model, tier: usedDeep ? "deep" : result?.tier, description: label });
+    return out ? { ...out, creditName: cfg.creditName } : null;
+  } catch (e) { logError({ requestId: req?.id, userId: req?.user?.id, route: "credits settle", error: e }); return null; }
+}
+
 // ---------------- Image analysis ----------------
 app.post("/api/analyse-image", requireAuth, chatLimiter, (req, res, next) => {
   upload.single("image")(req, res, err => (err ? res.status(400).json({ error: err.message }) : next()));
@@ -559,10 +623,13 @@ app.post("/api/analyse-image", requireAuth, chatLimiter, (req, res, next) => {
     const conversationId = await getOrCreateConversation(userId, idOf(req.body.conversationId), mode);
     if (!conversationId) return res.status(404).json({ error: "Chat not found." });
 
-    const candidates = ai.routeCandidates({ model: req.body.model, speed: req.body.speed || "balanced", mode, message: question, needVision: true });
-    if (!candidates.length) return res.status(503).json({ error: "None of your configured AI providers can read images." });
-    const result = await ai.complete({
-      candidates,
+    const vision = ai.routeCandidates({ model: req.body.model, speed: req.body.speed || "balanced", mode, message: question, needVision: true });
+    if (!vision.length) return res.status(503).json({ error: "None of your configured AI providers can read images." });
+    const route = await planRoute(userId, { feature: "images", candidates: vision });
+    if (!route.charge.ok) return res.status(route.charge.status).json({ error: route.charge.message, code: route.charge.code, balance: route.charge.balance, quote: route.charge.quote });
+    let result;
+    try { result = await ai.complete({
+      candidates: route.candidates,
       messages: [
         { role: "system", content: await buildSystemPrompt(userId, mode, { assistant: await library.resolveAssistant(userId, await chats.conversationAssistant(userId, conversationId)) }) },
         { role: "user", content: [
@@ -570,12 +637,13 @@ app.post("/api/analyse-image", requireAuth, chatLimiter, (req, res, next) => {
           { type: "image_url", image_url: { url: `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}` } }
         ] }
       ]
-    });
+    }); } catch (e) { await route.charge.cancel().catch(() => {}); throw e; } // failed answers cost nothing
     recordAttempts(userId, mode, result.attempts);
     record(userId, mode, result);
     const answer = result.text || "I couldn't analyse that image.";
     const saved = await chats.saveExchange(userId, conversationId, mode, "[Image] " + question, answer, result.model);
-    res.json({ answer, conversationId, mode, title: saved.title, model: result.model, provider: result.provider, userMessageId: saved.userMessageId, assistantMessageId: saved.assistantMessageId });
+    const bill = await settle(route.charge, route, { feature: "images", result, req });
+    res.json({ answer, conversationId, mode, title: saved.title, model: result.model, provider: result.provider, userMessageId: saved.userMessageId, assistantMessageId: saved.assistantMessageId, credits: bill, notice: route.fairUseNote || undefined });
   } catch (err) {
     logError({ requestId: req.id, userId: req.session.userId, route: "/api/analyse-image", error: err });
     recordAttempts(req.session.userId, "vision", err.attempts);
@@ -625,6 +693,16 @@ app.post("/api/chat", requireAuth, chatLimiter, wrap(async (req, res, next) => {
   const assistant = (await library.resolveAssistant(userId, (auto?.assistant && !convAssistant) ? auto.assistant : convAssistant)) || (await library.resolveAssistant(userId, null));
   const wantsSearch = effMode === "web" || effMode === "research" || /\b(search|look up|google|find online|news)\b/i.test(message);
 
+  // ---- Sam Credits: price the answer, apply the plan's published rules, reserve the credits ----
+  // (Nothing is kept if the answer fails. Max: nothing is deducted for included features.)
+  const feature = useCouncil ? "council" : effMode === "research" ? "research" : wantsSearch ? "web" : effMode === "coding" ? "coding" : "chat";
+  const route = await planRoute(userId, {
+    feature, useCouncil, councilModels: req.body.councilModels,
+    candidates: useCouncil ? null : ai.routeCandidates({ model: req.body.model ?? settings.defaultModel, speed: req.body.speed ?? settings.defaultSpeed, mode: effMode, message })
+  });
+  if (!route.charge.ok) return res.status(route.charge.status).json({ error: route.charge.message, code: route.charge.code, balance: route.charge.balance, quote: route.charge.quote });
+  const charge = route.charge;
+
   // Stop calling the AI if the browser disconnects or the user presses Stop.
   const controller = new AbortController();
   res.on("close", () => { if (!res.writableFinished) controller.abort(); });
@@ -634,6 +712,7 @@ app.post("/api/chat", requireAuth, chatLimiter, wrap(async (req, res, next) => {
   const send = obj => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
   send({ start: true, conversationId, mode });
   if (auto) send({ auto: auto.label, status: `Auto-selected: ${auto.label}` });
+  if (route.fairUseNote) send({ status: route.fairUseNote, fairUse: true });
 
   // Old messages are only replaced once there's a new answer to save (atomic, inside chats.*).
   const save = (answer, modelLabel, meta) => regenerate
@@ -659,12 +738,11 @@ app.post("/api/chat", requireAuth, chatLimiter, wrap(async (req, res, next) => {
 
     let result, meta = null;
     if (useCouncil) {
-      result = await ai.council({ messages, question: message, members: req.body.councilModels, signal: controller.signal, onStatus: s => send({ status: s }), onStart, onDelta });
+      result = await ai.council({ messages, question: message, memberList: route.members, signal: controller.signal, onStatus: s => send({ status: s }), onStart, onDelta });
       for (const m of result.members) record(userId, "council-member", m);
       meta = { council: result.members.map(m => ({ provider: m.provider, model: m.model, text: m.text })), councilFailed: result.failed };
     } else {
-      const candidates = ai.routeCandidates({ model: req.body.model ?? settings.defaultModel, speed: req.body.speed ?? settings.defaultSpeed, mode: effMode, message });
-      result = await ai.stream({ messages, candidates, signal: controller.signal, onStart, onDelta });
+      result = await ai.stream({ messages, candidates: route.candidates, signal: controller.signal, onStart, onDelta });
       // The model the user picked wasn't usable: say so, instead of silently answering with another one.
       const picked = req.body.model ?? settings.defaultModel;
       if (picked && picked !== "auto" && picked !== `${result.provider}:${result.model}`) {
@@ -677,15 +755,20 @@ app.post("/api/chat", requireAuth, chatLimiter, wrap(async (req, res, next) => {
     const answer = result.text || "My circuits had a tiny wobble — I got an empty reply. Try again?";
     const modelLabel = useCouncil ? `council → ${result.model}` : result.model + (auto ? ` · auto: ${auto.label}` : "") + (assistant?.id && assistant.id !== "sam" ? ` · ${assistant.name}` : "");
     const saved = await save(answer, modelLabel, meta);
-    send({ done: true, conversationId, mode, title: saved.title, model: modelLabel, meta, userMessageId: saved.userMessageId || (regenerate ? historyBefore : undefined), assistantMessageId: saved.assistantMessageId });
+    const bill = await settle(charge, route, { feature, result, req });
+    send({ done: true, conversationId, mode, title: saved.title, model: modelLabel, meta, userMessageId: saved.userMessageId || (regenerate ? historyBefore : undefined), assistantMessageId: saved.assistantMessageId, credits: bill });
     res.end();
   } catch (e) {
     if (controller.signal.aborted) {
       // User pressed Stop: keep whatever was written so far.
       if (partial) await save(partial + "\n\n_(stopped)_", started?.model, null).catch(err => logError({ requestId: req.id, userId, route: "/api/chat (save stopped reply)", error: err }));
+      // Stopped: credits only if part of an answer was written (at most the quoted price).
+      if (partial && started) await settle(charge, route, { feature, result: useCouncil ? null : { ...started }, req, stopped: true });
+      else await charge.cancel().catch(err => logError({ requestId: req.id, userId, route: "credits cancel", error: err }));
       return res.end();
     }
     logError({ requestId: req.id, userId, route: "/api/chat", error: e });
+    await charge.cancel().catch(err => logError({ requestId: req.id, userId, route: "credits cancel", error: err })); // failed answers cost nothing
     if (e.attempts?.length) recordAttempts(userId, mode, e.attempts); else record(userId, mode, started || {}, false);
     // Plain-English cause (overloaded, rate limited, quota, bad key…). Admins also see each provider's result.
     const msg = ai.describeFailure(e, { isAdmin: admin.isAdmin(req.user) });
@@ -731,6 +814,8 @@ async function main() {
   const secret = await getSessionSecret();
   guests.setSalt(secret); // network addresses are hashed with a secret, so the stored hashes can't be reversed
   setInterval(() => guests.sweep().catch(e => logError({ route: "guest-sweep", error: e })), 5 * 60 * 1000).unref();
+  credits.releaseStaleHolds().catch(e => logError({ route: "credits-holds", error: e }));
+  setInterval(() => credits.releaseStaleHolds().catch(e => logError({ route: "credits-holds", error: e })), 10 * 60 * 1000).unref();
   sessionMiddleware = session({
     store: new DbSessionStore(),
     secret,

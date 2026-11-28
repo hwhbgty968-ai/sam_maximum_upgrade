@@ -57,6 +57,18 @@ body.guest .guest-bar{display:flex}
 .guest-bar b{color:var(--text)}.guest-bar .grow{flex:1}.guest-bar button{padding:7px 12px;font-size:13px}
 .guest-bar.out{border-color:var(--accent)}
 .guest-link{display:block;width:100%;margin-top:14px;text-align:center}
+/* Plan & credits */
+.plan-box{border:1px solid var(--line);border-radius:16px;padding:16px 18px;background:var(--panel);margin-bottom:8px}
+.plan-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}.plan-head .pill{font-weight:600}
+.plan-big{font-size:22px;font-weight:700;margin:6px 0 2px}
+.plan-meter{height:8px;border-radius:6px;background:var(--line);overflow:hidden;margin:8px 0}.plan-meter span{display:block;height:100%;background:var(--accent)}
+.plan-box ul{margin:8px 0;padding-left:20px;line-height:1.6;font-size:14px}
+.plan-box h4{margin:16px 0 6px;font-size:14px}
+.plan-table{width:100%;border-collapse:collapse;font-size:13px}.plan-table td,.plan-table th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}.plan-table td.num{text-align:right;white-space:nowrap}
+.plan-compare{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.plan-compare>div{border:1px solid var(--line);border-radius:12px;padding:12px}
+.plan-compare .cur{border-color:var(--accent)}
+.credit-hint{margin-left:6px;color:var(--muted)}
+.msg-note{font-size:12px;color:var(--muted);margin-top:8px;border-left:3px solid var(--accent);padding-left:8px}
 .keep-guest{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:13px;color:var(--muted)}.keep-guest input{margin-top:2px}
 .sidebar{width:280px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 14px;gap:12px;overflow-y:auto}
 .profile{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:16px;padding:12px;background:var(--panel);width:100%;text-align:left;color:var(--text)}
@@ -378,7 +390,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <button id="stop" class="stop hidden" title="Stop generating">■ Stop</button>
 </div>
 </div>
-<div class="disclaimer">Sam can make mistakes. Check important facts against the sources. <button class="link-btn" data-tab="models">Models →</button></div>
+<div class="disclaimer">Sam can make mistakes. Check important facts against the sources. <button class="link-btn" data-tab="models">Models →</button><button id="creditHint" class="link-btn credit-hint hidden" data-tab="settings" title="How Sam Credits work"></button></div>
 </div>
 </section>
 
@@ -413,6 +425,9 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 </section>
 <section id="settingsSection" class="section page">
 <h2>Settings</h2>
+
+<h3>Plan &amp; credits</h3>
+<div id="planBox" class="plan-box"><p class="muted">Loading your plan…</p></div>
 
 <h3>Personalisation</h3>
 <div class="settings-grid">
@@ -450,12 +465,82 @@ async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'C
 let registering=false,guestMode=false,guestInfo=null,guestAvailable=false;
 function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
 function showAuth(msg='',mode=false){guestMode=false;document.body.classList.remove('guest');setAuthMode(mode);$('guestBtn').classList.toggle('hidden',!guestAvailable);$('guestBtn').textContent=guestInfo?'← Back to my guest chat':'Try Sam without an account →';$('keepGuestRow').classList.toggle('hidden',!(guestInfo&&guestInfo.hasChat));$('keepGuest').checked=false;$('adminLink').classList.add('hidden');document.body.classList.remove('drawer-open');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
-function showApp(username){guestMode=false;guestInfo=null;document.body.classList.remove('guest');$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);$('profileSub').textContent=s.isAdmin?'Admin':'Personal account';$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
+function showApp(username){guestMode=false;guestInfo=null;document.body.classList.remove('guest');$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels).then(loadCredits);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);samIsAdmin=!!s.isAdmin;$('profileSub').textContent=(s.isAdmin?'Admin · ':'')+planLine(s.plan);$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
 async function boot(){try{const s=await api('/api/status');guestAvailable=!!s.guestMode;guestInfo=s.guest;if(s.loggedIn)showApp(s.username);else if(s.guest)showGuest();else showAuth();const n=(s.providers||[]).length;$('aiState').textContent=s.aiConfigured?n+' AI provider'+(n===1?'':'s'):'No AI key configured';$('systemStatus').textContent=s.aiConfigured?'Sam · Online & Learning':'Sam · Setup needed';$('systemStatus').classList.toggle('warn',!s.aiConfigured);$('chipOnline').textContent=s.aiConfigured?'Online':'AI offline';$('chipOnline').classList.toggle('on',!!s.aiConfigured)}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
 const keepGuestChoice=()=>!$('keepGuestRow').classList.contains('hidden')&&$('keepGuest').checked;
 async function afterAuth(d){showApp(d.username);if(d.guestChatId){await loadConversations().catch(()=>{});openConversation(d.guestChatId).catch(()=>{})}}
 $('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value,keepGuestChat:keepGuestChoice()})});afterAuth(d)}catch(e){$('authMessage').textContent=e.message}};
 $('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,keepGuestChat:keepGuestChoice()})});afterAuth(d)}catch(e){$('authMessage').textContent=e.message}};
+// ---- Plan & Sam Credits: everything here comes from the server, so members see exactly the rules Sam applies ----
+let samCredits=null;
+const fmtN=n=>Number(n||0).toLocaleString('en-GB');
+function planLine(p){if(!p)return 'Personal account';return p.unlimited?`${p.label} · Unlimited ${p.creditName}`:`${p.label} · ${fmtN(p.balance)} ${p.creditName}`}
+async function loadCredits(){try{samCredits=await api('/api/credits');renderPlan();updateCreditHint()}catch(e){}}
+function mk(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function renderPlan(){
+  const c=samCredits,box=$('planBox');if(!c||!box)return;box.innerHTML='';
+  const name=c.creditName,p=c.plan,reset=new Date(c.resetsAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',timeZone:'UTC'});
+  const head=mk('div','plan-head');head.append(mk('span','pill',p.label+' plan'));box.append(head);
+  if(p.unlimited){
+    box.append(mk('div','plan-big','Unlimited '+name));
+    box.append(mk('p','muted',`No monthly allowance to run out of, and no ${name} are taken for the features included in ${p.label}.`));
+    box.append(mk('h4',null,`Included in ${p.label}`));const ul=mk('ul');p.eligible.forEach(f=>ul.append(mk('li',null,f.label)));box.append(ul);
+    const plural=(n,w)=>`${fmtN(n)} ${w}${n===1?'':'s'}`;
+    box.append(mk('h4',null,'Limits, in full'));const lim=mk('ul');
+    if(p.topModelDailyMessages)lim.append(mk('li',null,`Top models: up to ${plural(p.topModelDailyMessages,'message')} a day on Deep models. After that, Sam answers with standard models until midnight UTC. This never costs ${name} and never blocks you. Today: ${fmtN(c.topModelToday.used)} of ${fmtN(c.topModelToday.limit)} used.`));
+    lim.append(mk('li',null,`Speed limit: a few messages a minute, the same for every account, to stop runaway scripts.`));
+    box.append(lim);
+    box.append(mk('h4',null,'What "unlimited" covers'));box.append(mk('p',null,c.maxNote));
+  }else{
+    box.append(mk('div','plan-big',`${fmtN(c.balance)} of ${fmtN(p.monthlyCredits)} ${name} left`));
+    const meter=mk('div','plan-meter'),fill=mk('span');fill.style.width=Math.max(0,Math.min(100,c.balance/Math.max(1,p.monthlyCredits)*100))+'%';meter.append(fill);box.append(meter);
+    box.append(mk('p','muted',`Used this month: ${fmtN(c.usedThisMonth)}. Your allowance resets to ${fmtN(p.monthlyCredits)} on ${reset}. Unused ${name} don't roll over.`));
+  }
+  box.append(mk('h4',null,`How ${name} work`));
+  const how=mk('ul');[
+    `Each answer costs a fixed number of ${name}: Fast ${c.costs.fast}, Balanced ${c.costs.balanced}, Deep ${c.costs.deep}. Some models have their own price (list below).`,
+    `Web search or research adds ${c.costs.web}. Reading an image adds ${c.costs.images}. Sam Council costs each member model plus the one that combines their answers.`,
+    `You see the price next to the Send button before you send, and you're never charged more than that. If Sam has to use a cheaper model, you pay the lower price.`,
+    `If an answer fails, it costs nothing. If you press Stop, it only costs ${name} if part of the answer was already written.`,
+    `Every change to your balance is listed below. Sam never takes ${name} anywhere else.`
+  ].forEach(t=>how.append(mk('li',null,t)));box.append(how);
+  const det=mk('details');det.append(mk('summary',null,'Model prices'));const mt=mk('table','plan-table');
+  Object.entries(c.costs.models).sort((a,b)=>a[1]-b[1]).forEach(([m,v])=>{const tr=mk('tr');tr.append(mk('td',null,m),mk('td','num',`${v} ${name}`));mt.append(tr)});det.append(mt);box.append(det);
+  box.append(mk('h4',null,'Plans'));const cmp=mk('div','plan-compare');
+  c.plans.forEach(pl=>{const d=mk('div',pl.id===p.id?'cur':'');d.append(mk('b',null,pl.label+(pl.id===p.id?' (your plan)':'')));
+    d.append(mk('div',null,pl.unlimited?'Unlimited '+name:`${fmtN(pl.monthlyCredits)} ${name} a month`));
+    if(pl.unlimited&&pl.topModelDailyMessages)d.append(mk('div','muted',`Top models: ${fmtN(pl.topModelDailyMessages)} message${pl.topModelDailyMessages===1?'':'s'} a day, then standard models (no charge)`));
+    cmp.append(d)});
+  box.append(cmp);box.append(mk('p','muted','Paid plans aren\'t on sale yet. For now, Sam\'s admin can move accounts between plans.'));
+  box.append(mk('h4',null,'Recent activity'));
+  if(!c.history.length)box.append(mk('p','muted','Nothing yet.'));
+  else{const t=mk('table','plan-table');c.history.slice(0,25).forEach(r=>{const tr=mk('tr');const amt=r.kind==='included'?'included':(r.delta>0?'+':'')+fmtN(r.delta);
+    tr.append(mk('td',null,new Date(r.created_at.replace(' ','T')+'Z').toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})),mk('td',null,r.description||r.kind),mk('td','num',amt));t.append(tr)});box.append(t)}
+}
+// The price shown before sending (the server applies exactly these numbers and never charges more).
+function estimateCredits(){
+  const c=samCredits;if(!c)return null;const k=c.costs;
+  const tierCost=t=>k[t]??k.balanced;
+  const costOf=id=>{const m=samModels.find(x=>x.id===id);const nm=String(id||'').split(':').slice(1).join(':');return k.models[nm]??tierCost(m?.tier)};
+  const extra=messageMode()==='web'||messageMode()==='research'?k.web:0;
+  if(councilOn()){const ids=councilSelection();return ids.reduce((s,id)=>s+costOf(id),0)+k.balanced+extra}
+  const pick=$('modelPick').value,speed=$('speedPick').value;
+  if(pick&&pick!=='auto')return costOf(pick)+extra;
+  if(speed&&speed!=='auto'){const m=samModels.find(x=>x.tier===speed);return (m?costOf(m.id):tierCost(speed))+extra}
+  const all=samModels.map(m=>costOf(m.id));return all.length?[Math.min(...all)+extra,Math.max(...all)+extra]:null;
+}
+function updateCreditHint(){
+  const c=samCredits,h=$('creditHint');if(!c||!h||guestMode){h&&h.classList.add('hidden');return}
+  h.classList.remove('hidden');const name=c.creditName;
+  if(c.plan.unlimited){h.textContent=`Unlimited ${name} (${c.plan.label})`;return}
+  const e=estimateCredits();
+  const price=e==null?'':Array.isArray(e)?(e[0]===e[1]?`${e[0]} ${name}`:`${e[0]}–${e[1]} ${name} (Auto picks)`):`${e} ${name}`;
+  h.textContent=`${price?'This message: '+price+' · ':''}${fmtN(c.balance)} left`;
+}
+function creditNote(cr){if(!cr)return '';return cr.unlimited?` · included with ${samCredits?.plan?.label||'your plan'}`:` · ${cr.charged} ${cr.creditName||samCredits?.creditName||'credits'} · ${fmtN(cr.balance)} left`}
+let samIsAdmin=false;
+function afterCharge(cr){if(!cr||!samCredits)return;if(!cr.unlimited&&cr.balance!=null)samCredits.balance=cr.balance;updateCreditHint();$('profileSub').textContent=(samIsAdmin?'Admin · ':'')+planLine({label:samCredits.plan.label,unlimited:samCredits.plan.unlimited,balance:samCredits.balance,creditName:samCredits.creditName})}
+['modelPick','speedPick'].forEach(id=>$(id).addEventListener('change',updateCreditHint));
 // ---- Guest mode: plain chat, Fast models, a daily allowance, nothing saved ----
 function renderGuestBar(){const g=guestInfo||{};const left=g.remaining??0;$('guestLeft').textContent=left>0?`${left} of ${g.limit} free messages left today`:'no free messages left today';$('guestBar').classList.toggle('out',left<=0)}
 async function showGuest(){
@@ -538,10 +623,10 @@ async function streamChat(body){
   const payload=guestMode?{message:body.message}:{...body,model:$('modelPick').value,speed:$('speedPick').value,...(body.mode==='council'||body.council?{councilModels:councilSelection()}:{})};
   try{r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:activeController.signal})}
   catch(e){if(e.name==='AbortError')return {answer:'',streamed:true,stopped:true};throw Error('Can\'t reach Sam\'s server. Check your connection.')}
-  if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(guestMode&&d.code==='GUEST_REQUIRED'){guestEnded();throw Error(d.error)}if(guestMode&&d.code==='GUEST_LIMIT'){guestInfo={...guestInfo,remaining:0};renderGuestBar()}if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
+  if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(guestMode&&d.code==='GUEST_REQUIRED'){guestEnded();throw Error(d.error)}if(guestMode&&d.code==='GUEST_LIMIT'){guestInfo={...guestInfo,remaining:0};renderGuestBar()}if(d.code==='NO_CREDITS'||d.code==='NOT_INCLUDED')loadCredits();if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
   const el=addMsg('','sam');const md=()=>el.querySelector('.md');
   md().classList.add('typing');md().innerHTML='<span class="status-line">Thinking…</span>';
-  const reader=r.body.getReader();const dec=new TextDecoder();let buf='',answer='',meta={};
+  const reader=r.body.getReader();const dec=new TextDecoder();let buf='',answer='',meta={},fairNote=null;
   try{
     while(true){
       const {value,done}=await reader.read();if(done)break;
@@ -552,18 +637,21 @@ async function streamChat(body){
         const d=JSON.parse(ev.slice(6));
         if(guestMode&&d.remaining!==undefined){guestInfo={...guestInfo,remaining:d.remaining,limit:d.limit??guestInfo?.limit,hasChat:true};renderGuestBar()}
         if(d.error)throw Error(d.error);
+        if(d.fairUse)fairNote=d.status;
         if(d.status&&!answer){md().innerHTML='';const sp=document.createElement('span');sp.className='status-line';sp.textContent=d.status;md().append(sp)}
         if(d.model)setVia(el,d.model);
         if(d.delta){answer+=d.delta;setSamText(el,answer);md().classList.add('typing');$('chatScroll').scrollTop=$('chatScroll').scrollHeight}
         if(d.conversationId)meta={...meta,conversationId:d.conversationId,mode:d.mode};
-        if(d.done)meta={...meta,title:d.title,model:d.model,userMessageId:d.userMessageId,assistantMessageId:d.assistantMessageId,council:d.meta};
+        if(d.done)meta={...meta,title:d.title,model:d.model,userMessageId:d.userMessageId,assistantMessageId:d.assistantMessageId,council:d.meta,credits:d.credits};
       }
     }
   }catch(e){
     if(e.name==='AbortError'){if(!answer)el.remove();else{answer+='\n\n_(stopped)_';setSamText(el,answer)}return {...meta,answer,streamed:true,stopped:true,el}}
     if(!answer)el.remove();throw e;
   }finally{md()&&md().classList.remove('typing');activeController=null}
-  if(meta.model)setVia(el,meta.model);
+  if(meta.model)setVia(el,meta.model+creditNote(meta.credits));
+  if(fairNote){const n=mk('div','msg-note',fairNote);const v=el.querySelector('.via');v?v.after(n):el.append(n)}
+  afterCharge(meta.credits);
   return {...meta,answer,streamed:true,el};
 }
 $('attachImage').onclick=()=> $('imageUpload').click();
@@ -627,7 +715,8 @@ async function send(q){
     }else{
       d=await streamChat({message:q,conversationId:currentConversationId,mode:messageMode(),council:councilOn(),...(editId?{editMessageId:editId}:{})});
     }
-    if(d.conversationId)currentConversationId=d.conversationId;if(d.mode)currentMode=d.mode;const samEl=d.streamed?d.el:addMsg(d.answer,'sam',null,d.model);
+    if(d.conversationId)currentConversationId=d.conversationId;if(d.mode)currentMode=d.mode;const samEl=d.streamed?d.el:addMsg(d.answer,'sam',null,d.model?d.model+creditNote(d.credits):null);
+    if(!d.streamed){afterCharge(d.credits);if(d.notice&&samEl)samEl.append(mk('div','msg-note',d.notice))}
     if(d.userMessageId)decorate(userEl,{id:d.userMessageId,role:'user',content:file?'[Image] '+(q||''):q});
     if(d.assistantMessageId&&samEl)decorate(samEl,{id:d.assistantMessageId,role:'assistant',content:d.answer,meta:d.council});
     if(!guestMode){refreshRegen();await loadConversations()}
@@ -945,7 +1034,7 @@ function showSection(name){
   SECTIONS.forEach(n=>$(n+'Section').classList.toggle('active',n===name));
   $('profileMenu').classList.add('hidden');closeDrawer();
   if(name==='memory')loadMemories();if(name==='pinned')loadPins();if(name==='library'||name==='models')loadLibrary();
-  if(name==='settings')loadSettings();if(name==='history')loadHistoryView();
+  if(name==='settings'){loadSettings();loadCredits()}if(name==='history')loadHistoryView();
 }
 function showWelcome(on){$('welcome').hidden=!on;document.querySelector('.quick').classList.toggle('hidden',!on);if(on){renderChips();renderRecent()}}
 function renderChips(){$('chipMemory').textContent='Memory '+(samSettings.useMemories===false?'off':'on');$('chipWeb').textContent='Web '+(webOn?'on':'off');$('chipAuto').textContent=samSettings.autoMode===false?'Auto routing off':'Auto routing'}
@@ -962,7 +1051,7 @@ async function loadHistoryView(){const box=$('historyList');box.textContent='Loa
   }catch(e){box.textContent=e.message}}
 function messageMode(){return webOn&&!['research','web','council','vision'].includes(currentMode)?'web':currentMode}
 function councilOn(){return councilToggleOn||currentMode==='council'}
-function syncToggles(){$('webToggle').classList.toggle('on',webOn);$('councilToggle').classList.toggle('on',councilOn());renderChips();renderCouncilPick()}
+function syncToggles(){$('webToggle').classList.toggle('on',webOn);$('councilToggle').classList.toggle('on',councilOn());renderChips();renderCouncilPick();updateCreditHint()}
 $('webToggle').onclick=()=>{webOn=!webOn;syncToggles()};
 $('councilToggle').onclick=()=>{if(currentMode==='council')return;councilToggleOn=!councilToggleOn;syncToggles();if(councilToggleOn)addMsg('🏛 **Council is on**: each question goes to several AI models, then Sam combines the best answer. It\'s slower and uses more AI credit, so turn it off for everyday chat.','sam')};
 function updateAutoLabel(){const m=$('modelPick'),sp=$('speedPick');const opt=m.options[m.selectedIndex];let t=m.value==='auto'?'Auto':(opt?opt.textContent.split('·').pop().trim():'Auto');if(sp.value&&sp.value!=='auto')t+=' · '+sp.value[0].toUpperCase()+sp.value.slice(1);$('autoLabel').textContent=t}
