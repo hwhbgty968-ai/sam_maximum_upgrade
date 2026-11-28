@@ -33,11 +33,18 @@ td{padding:8px;border-bottom:1px solid #24262c;vertical-align:top}
 .pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid #3a3d46}
 .ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
 .muted{color:var(--muted);font-size:12px}
-input,select{background:#121317;border:1px solid #393c45;border-radius:8px;color:#fff;padding:8px 10px;font:inherit;font-size:13px}
+input,select,textarea{background:#121317;border:1px solid #393c45;border-radius:8px;color:#fff;padding:8px 10px;font:inherit;font-size:13px}
 .bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
 pre{white-space:pre-wrap;font-size:11px;color:#b8bcc6;margin:6px 0 0;max-height:220px;overflow:auto}
 .notice{background:#1d2430;border:1px solid #33435a;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px}
 #gate{max-width:520px;margin:80px auto;text-align:center}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:8px 0 14px}
+.form-grid label,.fieldset label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.form-grid input,.form-grid select{width:100%}
+.fieldset{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 14px}
+.fieldset h3{margin:0 0 8px;font-size:15px}
+.checks{display:flex;flex-wrap:wrap;gap:6px 16px}.checks label{display:flex;gap:6px;align-items:center;color:var(--text);font-size:13px;margin:0}
+textarea.wide{width:100%;min-height:110px;box-sizing:border-box;line-height:1.5}
 </style>
 </head>
 <body>
@@ -50,6 +57,7 @@ pre{white-space:pre-wrap;font-size:11px;color:#b8bcc6;margin:6px 0 0;max-height:
       <button class="tab" data-s="users">Users</button>
       <button class="tab" data-s="usage">Usage &amp; cost</button>
       <button class="tab" data-s="providers">AI providers</button>
+      <button class="tab" data-s="credits">Plans &amp; credits</button>
       <button class="tab" data-s="errors">Errors</button>
       <button class="tab" data-s="backups">Backups</button>
     </nav>
@@ -73,6 +81,41 @@ pre{white-space:pre-wrap;font-size:11px;color:#b8bcc6;margin:6px 0 0;max-height:
       <p class="muted">"Test" sends a tiny message to every model (a few tokens each) and shows whether it really answers. Sam also tests automatically at most every 6 hours. Models that fail for a lasting reason (no quota, model missing, bad key) are skipped until the next test.</p>
       <div class="panel"><table id="provTable"></table></div>
       <div id="provNotes" class="muted" style="margin-top:10px"></div>
+    </section>
+
+    <section id="s-credits" class="section">
+      <div id="creditCards" class="cards"></div>
+      <p class="muted">No real money yet: plans are given by admins (Users tab). Members see these numbers and this wording in Settings → Plan &amp; credits, so what you set here is exactly what they're told. Changes apply to the next message.</p>
+      <div class="fieldset"><h3>Names</h3><div class="form-grid">
+        <div><label for="cfName">Credit name (shown to members)</label><input id="cfName" maxlength="40"></div>
+        <div><label for="cfFreeLabel">Free plan name</label><input id="cfFreeLabel" maxlength="30"></div>
+        <div><label for="cfMaxLabel">Max plan name</label><input id="cfMaxLabel" maxlength="30"></div>
+      </div></div>
+      <div class="fieldset"><h3>Free plan</h3><div class="form-grid">
+        <div><label for="cfFreeCredits">Credits each month (reset on the 1st, no rollover)</label><input id="cfFreeCredits" type="number" min="0"></div>
+      </div></div>
+      <div class="fieldset"><h3>Max plan</h3>
+        <div class="checks" style="margin-bottom:10px"><label><input type="checkbox" id="cfMaxUnlimited"> Unlimited credits (no monthly allowance, nothing deducted for included features)</label></div>
+        <label>Included features</label><div class="checks" id="cfMaxFeatures"></div>
+        <div class="form-grid" style="margin-top:10px">
+          <div><label for="cfMaxTop">Fair use: top-model (Deep) messages per day before Sam uses standard models (0 = no limit)</label><input id="cfMaxTop" type="number" min="0"></div>
+          <div id="cfMaxCreditsWrap"><label for="cfMaxCredits">Credits each month (only when not unlimited)</label><input id="cfMaxCredits" type="number" min="0"></div>
+        </div>
+        <label for="cfMaxNote">What Max members are told about "unlimited" (keep it honest and plain)</label>
+        <textarea id="cfMaxNote" class="wide" maxlength="2000"></textarea>
+      </div>
+      <div class="fieldset"><h3>Prices (credits per answer)</h3><div class="form-grid">
+        <div><label for="cfFast">Fast</label><input id="cfFast" type="number" min="0"></div>
+        <div><label for="cfBalanced">Balanced</label><input id="cfBalanced" type="number" min="0"></div>
+        <div><label for="cfDeep">Deep</label><input id="cfDeep" type="number" min="0"></div>
+        <div><label for="cfWeb">Extra for web search / research</label><input id="cfWeb" type="number" min="0"></div>
+        <div><label for="cfImages">Extra for reading an image</label><input id="cfImages" type="number" min="0"></div>
+      </div>
+        <label for="cfModels">Model prices (one per line: <code>model = credits</code>). Models not listed use their speed's price.</label>
+        <textarea id="cfModels" class="wide"></textarea>
+        <div class="muted" id="cfModelHint" style="margin-top:6px"></div>
+      </div>
+      <div class="bar"><button id="cfSave">Save settings</button><button id="cfDefaults">Fill in the defaults</button><span class="muted" id="cfMsg"></span></div>
     </section>
 
     <section id="s-errors" class="section">
@@ -133,6 +176,7 @@ async function loadOverview() {
     card("AI requests today", n(o.usageToday.requests), `${n(o.usageToday.input_tokens + o.usageToday.output_tokens)} tokens · ${n(o.usageToday.failures)} failed`),
     card("AI requests (30 days)", n(o.usage30d.requests), `${n(o.usage30d.input_tokens + o.usage30d.output_tokens)} tokens`),
     card("Errors (24h)", el("span", { class: o.errors24h ? "warn" : "ok" }, n(o.errors24h))),
+    ...(o.credits ? [card("Credits used this month", n(o.credits.creditsUsed), `${n(o.credits.plans.free || 0)} Free · ${n(o.credits.plans.max || 0)} Max · ${n(o.credits.includedAnswers)} Max answers included`)] : []),
     ...(o.guests ? [card("Guest messages today", o.guests.enabled ? `${n(o.guests.messagesToday)} of ${n(o.guests.dailyTotal)}` : "off", o.guests.enabled ? `${o.guests.perGuest} per guest, ${o.guests.perNetwork} per network · ${n(o.guests.openChats)} open guest chats` : "GUEST_MODE=0")] : []),
     card("AI providers", `${provs.filter(p => p.key !== "invalid").length} of ${provs.length} working`, provs.map(p => p.label + (p.key === "invalid" ? " (key rejected)" : "")).join(", ") || "None configured!")
   );
@@ -143,9 +187,12 @@ async function loadOverview() {
 async function loadUsers() {
   const d = await api("/api/admin/users?q=" + encodeURIComponent($("userQ").value));
   $("userCount").textContent = `${d.total} user${d.total === 1 ? "" : "s"}`;
-  table("userTable", ["User", "Age", "Joined", "Last login", "Messages", "AI reqs (30d)", "Tokens (30d)", "Status", ""], d.users.map(u => [
+  table("userTable", ["User", "Age", "Plan", "Credits used (month)", "Joined", "Last login", "Messages", "AI reqs (30d)", "Status", ""], d.users.map(u => [
     el("span", {}, u.username, u.isAdmin ? el("span", { class: "pill", style: "margin-left:6px" }, "admin") : null),
-    u.age ?? "—", when(u.created_at), when(u.last_login_at), n(u.messages), n(u.requests30d), n(u.tokens30d),
+    u.age ?? "—",
+    planSelect(u),
+    el("span", {}, n(u.credits_used), " ", el("button", { class: "small", title: "Add or remove credits", onclick: () => adjustCredits(u) }, "±")),
+    when(u.created_at), when(u.last_login_at), n(u.messages), n(u.requests30d),
     u.disabled ? el("span", { class: "bad" }, "Disabled") : el("span", { class: "ok" }, "Active"),
     el("span", {},
       u.id === me ? el("span", { class: "muted" }, "you") : [
@@ -153,6 +200,22 @@ async function loadUsers() {
         el("button", { onclick: () => setRole(u) }, u.isAdmin ? "Remove admin" : "Make admin"), " "],
       el("button", { onclick: () => resetLink(u) }, "Reset link"))
   ]));
+}
+function planSelect(u) {
+  const s = el("select", { "aria-label": "Plan for " + u.username, onchange: async e => {
+    const plan = e.target.value;
+    if (!confirm(`Change ${u.username} to ${plan === "max" ? "Max" : "Free"}? No payment is involved.`)) { e.target.value = u.plan; return; }
+    try { await api(`/api/admin/users/${u.id}`, { method: "PATCH", body: JSON.stringify({ plan }) }); loadUsers(); } catch (err) { alert(err.message); e.target.value = u.plan; }
+  } }, el("option", { value: "free" }, "Free"), el("option", { value: "max" }, "Max"));
+  s.value = u.plan || "free";
+  return s;
+}
+async function adjustCredits(u) {
+  const amount = prompt(`Add credits for ${u.username} this month (use a minus sign to remove), e.g. 200:`);
+  if (amount === null || amount.trim() === "") return;
+  const note = prompt("Note the member will see next to it (optional):") || "";
+  try { const d = await api(`/api/admin/users/${u.id}/credits`, { method: "POST", body: JSON.stringify({ amount: Number(amount), note }) }); alert(`Done. ${u.username} now has ${n(d.balance)} credits this month.`); loadUsers(); }
+  catch (e) { alert(e.message); }
 }
 async function toggleUser(u) {
   if (!u.disabled && !confirm(`Disable ${u.username}? They'll be logged out everywhere and can't log in.`)) return;
@@ -239,7 +302,56 @@ async function loadBackups() {
   table("backupTable", ["File", "Size"], d.backups.map(b => [b.file, bytes(b.bytes)]));
 }
 
-const loaders = { overview: loadOverview, users: loadUsers, usage: loadUsage, providers: loadProviders, errors: loadErrors, backups: loadBackups };
+let creditData = null;
+function fillCreditForm(c) {
+  $("cfName").value = c.creditName; $("cfFreeLabel").value = c.plans.free.label; $("cfMaxLabel").value = c.plans.max.label;
+  $("cfFreeCredits").value = c.plans.free.monthlyCredits;
+  $("cfMaxUnlimited").checked = c.plans.max.unlimited !== false; $("cfMaxTop").value = c.plans.max.topModelDailyMessages ?? 0; $("cfMaxCredits").value = c.plans.max.monthlyCredits ?? 0;
+  $("cfMaxCreditsWrap").hidden = $("cfMaxUnlimited").checked;
+  const box = $("cfMaxFeatures"); box.innerHTML = "";
+  for (const [id, label] of Object.entries(creditData.features)) box.append(el("label", {}, el("input", { type: "checkbox", value: id, ...(c.plans.max.eligible.includes(id) ? { checked: "" } : {}) }), label));
+  $("cfMaxNote").value = c.maxNote;
+  for (const k of ["fast", "balanced", "deep", "web", "images"]) $("cf" + k[0].toUpperCase() + k.slice(1)).value = c.costs[k];
+  $("cfModels").value = Object.entries(c.costs.models).map(([m, v]) => `${m} = ${v}`).join("\n");
+}
+async function loadCredits() {
+  creditData = await api("/api/admin/credits/config");
+  const st = creditData.stats;
+  $("creditCards").innerHTML = "";
+  $("creditCards").append(card("Credits used this month", n(st.creditsUsed), st.month), card("Free members", n(st.plans.free || 0)), card("Max members", n(st.plans.max || 0), `${n(st.includedAnswers)} answers included this month`));
+  fillCreditForm(creditData.config);
+  const priced = creditData.config.costs.models;
+  const missing = creditData.models.filter(m => priced[m.model] == null).map(m => `${m.model} (${m.tier}: ${creditData.config.costs[m.tier]})`);
+  $("cfModelHint").textContent = missing.length ? "Connected models using their speed's price: " + missing.join(", ") : "Every connected model has its own price.";
+}
+function readCreditForm() {
+  const models = {};
+  for (const line of $("cfModels").value.split("\n").map(l => l.trim()).filter(Boolean)) {
+    const m = line.match(/^([^=]+?)\s*=\s*(-?\d+(?:\.\d+)?)$/);
+    if (!m) throw Error(`Can't read the model price line "${line}". Use: model = credits`);
+    models[m[1].trim()] = Number(m[2]);
+  }
+  const num = id => Number($(id).value);
+  return {
+    creditName: $("cfName").value,
+    plans: {
+      free: { label: $("cfFreeLabel").value, monthlyCredits: num("cfFreeCredits") },
+      max: { label: $("cfMaxLabel").value, unlimited: $("cfMaxUnlimited").checked, eligible: [...$("cfMaxFeatures").querySelectorAll("input:checked")].map(i => i.value),
+        topModelDailyMessages: num("cfMaxTop"), monthlyCredits: num("cfMaxCredits") }
+    },
+    costs: { fast: num("cfFast"), balanced: num("cfBalanced"), deep: num("cfDeep"), web: num("cfWeb"), images: num("cfImages"), models },
+    maxNote: $("cfMaxNote").value
+  };
+}
+$("cfMaxUnlimited").onchange = () => { $("cfMaxCreditsWrap").hidden = $("cfMaxUnlimited").checked; };
+$("cfDefaults").onclick = () => { fillCreditForm(creditData.defaults); $("cfMsg").textContent = "Defaults filled in — press Save to use them."; };
+$("cfSave").onclick = async () => {
+  $("cfMsg").textContent = "";
+  try { const config = readCreditForm(); await api("/api/admin/credits/config", { method: "PUT", body: JSON.stringify({ config }) }); await loadCredits(); $("cfMsg").textContent = "Saved. Members see the new settings on their next message."; }
+  catch (e) { $("cfMsg").textContent = e.message; }
+};
+
+const loaders = { overview: loadOverview, users: loadUsers, usage: loadUsage, providers: loadProviders, credits: loadCredits, errors: loadErrors, backups: loadBackups };
 document.querySelectorAll("nav .tab").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav .tab").forEach(x => x.classList.toggle("active", x === b));
   document.querySelectorAll(".section").forEach(s => s.classList.toggle("active", s.id === "s-" + b.dataset.s));

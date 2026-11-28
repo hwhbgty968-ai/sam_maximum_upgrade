@@ -58,6 +58,9 @@ function check(name, ok, detail = "") {
   check("sign-up under 13 is refused", young.status === 400 && young.data.code === "TOO_YOUNG", young.text);
   const dup = await anon("POST", "/api/register", { username: userA.toUpperCase(), password: pw, age: 20 });
   check("duplicate username (different case) rejected", dup.status === 409, dup.text);
+  const cr = await A("GET", "/api/credits");
+  check("new account: a plan, a credit balance and published prices", cr.status === 200 && !!cr.data.plan?.label && (cr.data.plan.unlimited || cr.data.balance === cr.data.plan.monthlyCredits) && cr.data.costs?.fast >= 0, cr.text.slice(0, 200));
+  check("no one can see or change credit settings without being admin", (await A("GET", "/api/admin/credits/config")).status === 403 && (await A("PUT", "/api/admin/credits/config", { config: {} })).status === 403);
   const sa = await A("GET", "/api/status");
   check("user A session sticks after register", sa.data.loggedIn === true && sa.data.username === userA, sa.text);
   check("user A is not an admin", sa.data.isAdmin === false);
@@ -95,6 +98,9 @@ function check(name, ok, detail = "") {
     check(`AI replies (${((Date.now() - t0) / 1000).toFixed(1)}s, model: ${events.find(e => e.model)?.model || "?"})`, !err && answer.length > 0, err?.error || chat.text.slice(0, 300));
     const saved = await A("GET", "/api/conversations/" + ca.data.id);
     check("reply saved to chat history", saved.data.messages?.length >= 2, saved.text.slice(0, 200));
+    const bill = events.find(e => e.done)?.credits;
+    const after = await A("GET", "/api/credits");
+    check("the answer reports its credit cost, and the balance matches", bill && (bill.unlimited || (bill.charged >= 0 && bill.balance === after.data.balance)), JSON.stringify(bill) + " / " + after.data.balance);
     const usage = await A("GET", "/api/usage");
     check("usage recorded for user A", usage.data.today?.requests >= 1, usage.text);
   } else {
