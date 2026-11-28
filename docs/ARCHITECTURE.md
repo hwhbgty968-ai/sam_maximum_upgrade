@@ -9,6 +9,7 @@ lib/backup.js        Full JSON backup + restore (works across engines)
 lib/ai.js            AI providers, routing, fallback, streaming, Sam Council
 lib/search.js        Web search + article reading
 lib/admin.js         Admin queries: users, usage, health, errors, backups
+lib/guests.js        Guest mode: in-memory guest chats, daily allowances (guest / network / all), opt-in save
 lib/accounts.js      Account data: reset tokens, export, deletion
 lib/log.js           Structured JSON logging + error log
 public/index.html    Main app (vanilla JS)

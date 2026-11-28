@@ -54,6 +54,8 @@ function check(name, ok, detail = "") {
   check("user A can register", ra.status === 200 && ra.data.ok, ra.text);
   const rb = await B("POST", "/api/register", { username: userB, password: pw, age: 30 });
   check("user B can register", rb.status === 200 && rb.data.ok, rb.text);
+  const young = await anon("POST", "/api/register", { username: userA + "_kid", password: pw, age: 12 });
+  check("sign-up under 13 is refused", young.status === 400 && young.data.code === "TOO_YOUNG", young.text);
   const dup = await anon("POST", "/api/register", { username: userA.toUpperCase(), password: pw, age: 20 });
   check("duplicate username (different case) rejected", dup.status === 409, dup.text);
   const sa = await A("GET", "/api/status");
@@ -234,6 +236,18 @@ function check(name, ok, detail = "") {
   } else {
     console.log("\n  ⏭  Admin tests skipped — set SMOKE_ADMIN_USER and SMOKE_ADMIN_PASS to include them");
   }
+
+  console.log("\nGuest mode");
+  if (st.data.guestMode) {
+    const G = client();
+    const gs = await G("POST", "/api/guest/start");
+    check("a guest session can start", gs.status === 200 && typeof gs.data.remaining === "number", gs.text);
+    check("guests can't see anyone's chats", (await G("GET", "/api/conversations")).status === 401 && (await G("GET", "/api/conversations/" + ca.data.id)).status === 401);
+    check("guests can't use the member chat or admin routes", (await G("POST", "/api/chat", { message: "hi" })).status === 401 && (await G("GET", "/api/admin/overview")).status === 401);
+    const gc = await G("GET", "/api/guest/chat");
+    check("a new guest chat starts empty", gc.status === 200 && gc.data.messages.length === 0, gc.text);
+    check("leaving ends the guest session", (await G("POST", "/api/guest/end")).status === 200 && (await G("GET", "/api/guest/chat")).status === 401);
+  } else console.log("  ⏭  Guest mode is off on this server (GUEST_MODE=0)");
 
   console.log("\nAccount deletion (user B)");
   check("delete account: wrong password refused", (await B("DELETE", "/api/account", { password: "wrong-wrong-wrong" })).status === 400);

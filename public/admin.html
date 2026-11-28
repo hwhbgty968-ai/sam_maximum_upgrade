@@ -133,6 +133,7 @@ async function loadOverview() {
     card("AI requests today", n(o.usageToday.requests), `${n(o.usageToday.input_tokens + o.usageToday.output_tokens)} tokens · ${n(o.usageToday.failures)} failed`),
     card("AI requests (30 days)", n(o.usage30d.requests), `${n(o.usage30d.input_tokens + o.usage30d.output_tokens)} tokens`),
     card("Errors (24h)", el("span", { class: o.errors24h ? "warn" : "ok" }, n(o.errors24h))),
+    ...(o.guests ? [card("Guest messages today", o.guests.enabled ? `${n(o.guests.messagesToday)} of ${n(o.guests.dailyTotal)}` : "off", o.guests.enabled ? `${o.guests.perGuest} per guest, ${o.guests.perNetwork} per network · ${n(o.guests.openChats)} open guest chats` : "GUEST_MODE=0")] : []),
     card("AI providers", `${provs.filter(p => p.key !== "invalid").length} of ${provs.length} working`, provs.map(p => p.label + (p.key === "invalid" ? " (key rejected)" : "")).join(", ") || "None configured!")
   );
   $("sysline").textContent = `Database: ${o.database?.engine === "postgres" ? "Postgres (permanent)" : "SQLite file"}, ${bytes(o.dbSizeBytes)} · up ${Math.floor(o.uptimeSeconds / 3600)}h ${Math.floor(o.uptimeSeconds % 3600 / 60)}m · Node ${o.node} · Admins: ${o.admins.join(", ")}`;

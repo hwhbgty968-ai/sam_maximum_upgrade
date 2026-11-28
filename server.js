@@ -9,6 +9,7 @@ const multer = require("multer");
 const crypto = require("crypto");
 
 const { db, engine, init: initDatabase, getSessionSecret, findUserByUsername, usernameTaken, logUsage } = require("./lib/db");
+const guests = require("./lib/guests");
 const { DbSessionStore } = require("./lib/session-store");
 const backup = require("./lib/backup");
 const ai = require("./lib/ai");
@@ -23,6 +24,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_PROD = process.env.NODE_ENV === "production" || !!process.env.RENDER;
 const MODES = ["chat", "web", "research", "vision", "image", "coding", "council"];
+const MIN_AGE = 13;          // UK GDPR / ICO Children's Code: under-13s would need parental consent
+const GUEST_USER_ID = 0;     // guest usage is logged under user 0 (no such account)
 
 ai.init();
 // Check every provider's model list (free; also catches rejected keys before any user does).
@@ -83,6 +86,16 @@ const chatLimiter = rateLimit({
   message: { error: "You're sending messages very fast — give Sam a few seconds." }
 });
 
+// Guest mode: a few new guest sessions per network per hour, and a per-guest burst limit.
+const guestStartLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, limit: Number(process.env.GUEST_STARTS_PER_HOUR) || 30, skip: req => !!req.session.guestId,
+  standardHeaders: true, legacyHeaders: false, message: { error: "Too many guest sessions from this network. Try again later, or create a free account." }
+});
+const guestChatLimiter = rateLimit({
+  windowMs: 60 * 1000, limit: Number(process.env.GUEST_RATE_PER_MIN) || 6, keyGenerator: req => "guest:" + req.session.guestId, standardHeaders: true, legacyHeaders: false,
+  message: { error: "You're sending messages very fast — give Sam a few seconds." }
+});
+
 const upload = multer({
   storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 },
   fileFilter: (req, file, cb) => cb(null, /^image\/(jpeg|png|webp|gif)$/.test(file.mimetype))
@@ -128,8 +141,11 @@ app.get("/api/status", wrap(async (req, res) => {
   if (user && (user.disabled || (user.password_changed_at || null) !== (req.session.pwAt || null))) user = null;
   if (req.session.userId && !user) req.session.destroy(() => {});
   const models = ai.listModels();
+  const guestId = !user && guests.enabled() ? req.session.guestId : null;
   res.json({
     loggedIn: !!user,
+    guestMode: guests.enabled(),
+    guest: guestId ? { active: true, hasChat: guests.messages(guestId).length > 0, ...(await guests.remaining(guestId, req.ip)) } : null,
     isAdmin: admin.isAdmin(user),
     adminSetupOpen: !!user && admin.status().setupOpen,
     username: user ? req.session.username : null,
@@ -147,14 +163,16 @@ app.post("/api/register", registerLimiter, authLimiter, async (req, res, next) =
     const password = String(req.body.password || "");
     const age = Number(req.body.age);
     if (!/^[a-zA-Z0-9_-]{3,24}$/.test(username)) return res.status(400).json({ error: "Username must be 3–24 letters, numbers, _ or -." });
-    if (!Number.isInteger(age) || age < 5 || age > 120) return res.status(400).json({ error: "Please enter a valid age." });
+    if (!Number.isInteger(age) || age < 1 || age > 120) return res.status(400).json({ error: "Please enter a valid age." });
+    if (age < MIN_AGE) return res.status(400).json({ error: `Sam is for ages ${MIN_AGE} and up.`, code: "TOO_YOUNG" });
     if (password.length < 10) return res.status(400).json({ error: "Use a password with at least 10 characters." });
     if (await usernameTaken(username)) return res.status(409).json({ error: "That username is already taken." });
 
     const hash = await bcrypt.hash(password, 12);
     const id = await db.insert("INSERT INTO users(username,password_hash,age,last_login_at) VALUES(?,?,?,datetime('now'))", username, hash, age);
+    const guestChatId = await takeGuestChat(req, id);
     await startSession(req, { id, username, password_changed_at: null });
-    res.json({ ok: true, username, age });
+    res.json({ ok: true, username, age, guestChatId });
   } catch (e) {
     // Two sign-ups racing for the same name: SQLite and Postgres report it differently.
     if (String(e.code).startsWith("SQLITE_CONSTRAINT") || e.code === "23505" || /UNIQUE constraint/i.test(e.message)) return res.status(409).json({ error: "That username is already taken." });
@@ -169,14 +187,99 @@ app.post("/api/login", authLimiter, async (req, res, next) => {
     const user = await findUserByUsername(username);
     if (!user || !(await bcrypt.compare(password, user.password_hash))) return res.status(401).json({ error: "Incorrect username or password." });
     if (user.disabled) return res.status(403).json({ error: "This account has been disabled. Contact the site admin.", code: "ACCOUNT_DISABLED" });
+    const guestChatId = await takeGuestChat(req, user.id);
     await startSession(req, user);
     await db.run("UPDATE users SET last_login_at=datetime('now') WHERE id=?", user.id);
-    res.json({ ok: true, username: user.username, age: user.age ?? null });
+    res.json({ ok: true, username: user.username, age: user.age ?? null, guestChatId });
   } catch (e) { next(e); }
 });
 
 // Logging out always succeeds, even if the session already expired.
-app.post("/api/logout", (req, res) => req.session.destroy(() => { res.clearCookie("sam.sid"); res.json({ ok: true }); }));
+app.post("/api/logout", (req, res) => { if (req.session.guestId) guests.forget(req.session.guestId); req.session.destroy(() => { res.clearCookie("sam.sid"); res.json({ ok: true }); }); });
+
+// When a guest logs in or signs up, their guest chat is deleted — or, ONLY if they ticked
+// "save this chat" (keepGuestChat: true), copied into their account first.
+async function takeGuestChat(req, userId) {
+  const guestId = req.session.guestId;
+  if (!guestId) return null;
+  try { return req.body.keepGuestChat === true ? await chats.importConversation(userId, guests.messages(guestId)) : null; }
+  finally { guests.forget(guestId); }
+}
+
+// ---------------- Guest mode ----------------
+// Guests never get a user id, so every account route (requireAuth) stays closed to them.
+const requireGuest = (req, res, next) => {
+  if (!guests.enabled()) return res.status(404).json({ error: "Guest mode is turned off." });
+  if (req.session.userId || !req.session.guestId) return res.status(401).json({ error: "Your guest session has ended. Start a new one, or log in.", code: "GUEST_REQUIRED" });
+  next();
+};
+
+app.post("/api/guest/start", guestStartLimiter, wrap(async (req, res) => {
+  if (!guests.enabled()) return res.status(404).json({ error: "Guest mode is turned off." });
+  if (req.session.userId) return res.status(400).json({ error: "You're already logged in." });
+  if (!req.session.guestId) {
+    await new Promise((ok, fail) => req.session.regenerate(e => (e ? fail(e) : ok())));
+    req.session.guestId = guests.newGuestId();
+    req.session.cookie.maxAge = guests.config().idleMs; // the guest session ends after this long without activity
+    await new Promise((ok, fail) => req.session.save(e => (e ? fail(e) : ok())));
+  }
+  res.json({ ok: true, ...(await guests.remaining(req.session.guestId, req.ip)) });
+}));
+
+app.get("/api/guest/chat", requireGuest, wrap(async (req, res) => {
+  res.json({ messages: guests.messages(req.session.guestId), ...(await guests.remaining(req.session.guestId, req.ip)) });
+}));
+
+app.post("/api/guest/end", (req, res) => {
+  if (req.session.guestId) guests.forget(req.session.guestId);
+  if (req.session.userId) return res.json({ ok: true });
+  req.session.destroy(() => { res.clearCookie("sam.sid"); res.json({ ok: true }); });
+});
+
+// Body: { message }. Streams like /api/chat. Fast models only (Balanced as a backup), no web, images,
+// memory or council. A message only counts against the daily limit if Sam actually answers.
+app.post("/api/guest/chat", requireGuest, guestChatLimiter, wrap(async (req, res) => {
+  if (!ai.isConfigured()) return res.status(503).json({ error: "Sam isn't connected to an AI provider yet." });
+  const guestId = req.session.guestId;
+  const message = String(req.body.message || "").trim();
+  if (!message) return res.status(400).json({ error: "Type a message first." });
+  if (message.length > guests.config().maxChars) return res.status(400).json({ error: `Guest messages can be up to ${guests.config().maxChars} characters. Create a free account for longer ones.` });
+  const slot = await guests.reserve(guestId, req.ip);
+  if (!slot.ok) return res.status(429).json({ error: guests.limitMessage(slot.reason), code: "GUEST_LIMIT", remaining: 0 });
+
+  const controller = new AbortController();
+  res.on("close", () => { if (!res.writableFinished) controller.abort(); });
+  res.set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+  res.flushHeaders();
+  const send = obj => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(obj)}\n\n`); };
+  send({ start: true, guest: true });
+  let partial = "", started = null;
+  try {
+    const messages = [{ role: "system", content: guests.systemPrompt() }, ...guests.history(guestId), { role: "user", content: message }];
+    const candidates = guests.candidates(ai.routeCandidates({ speed: "fast", mode: "chat", message }));
+    const result = await ai.stream({
+      messages, candidates, signal: controller.signal,
+      onStart: c => { started = c; send({ model: c.model, provider: c.provider }); },
+      onDelta: d => { partial += d; send({ delta: d }); }
+    });
+    recordAttempts(GUEST_USER_ID, "guest", result.attempts);
+    record(GUEST_USER_ID, "guest", result);
+    const answer = result.text || "My circuits had a tiny wobble — I got an empty reply. Try again?";
+    guests.add(guestId, message, answer, result.model);
+    send({ done: true, model: result.model, ...(await guests.remaining(guestId, req.ip)) });
+    res.end();
+  } catch (e) {
+    if (controller.signal.aborted) {
+      if (partial) guests.add(guestId, message, partial + "\n\n_(stopped)_", started?.model); else await slot.release();
+      return res.end();
+    }
+    await slot.release(); // no answer, so it doesn't count
+    logError({ requestId: req.id, route: "/api/guest/chat", error: e });
+    if (e.attempts?.length) recordAttempts(GUEST_USER_ID, "guest", e.attempts);
+    send({ error: `${ai.describeFailure(e)} (ref: ${req.id})`, errorKind: e.kind || null, ...(await guests.remaining(guestId, req.ip)) });
+    res.end();
+  }
+}));
 
 // ---------------- Conversations ----------------
 app.get("/api/conversations", requireAuth, wrap(async (req, res) => {
@@ -335,7 +438,7 @@ app.post("/api/admin/claim", requireAuth, authLimiter, api(async (req, res) => {
 }));
 
 const adminOnly = [requireAuth, requireAdmin];
-app.get("/api/admin/overview", adminOnly, wrap(async (req, res) => res.json({ ...(await admin.overview()), providers: ai.providerStatus() })));
+app.get("/api/admin/overview", adminOnly, wrap(async (req, res) => res.json({ ...(await admin.overview()), providers: ai.providerStatus(), guests: await guests.stats() })));
 app.get("/api/admin/users", adminOnly, wrap(async (req, res) => res.json(await admin.listUsers(req.query))));
 // { disabled: true|false } and/or { role: "admin"|"user" }
 app.patch("/api/admin/users/:id", adminOnly, api(async (req, res) => {
@@ -625,9 +728,12 @@ async function main() {
       await new Promise(r => setTimeout(r, attempt * 3000));
     }
   }
+  const secret = await getSessionSecret();
+  guests.setSalt(secret); // network addresses are hashed with a secret, so the stored hashes can't be reversed
+  setInterval(() => guests.sweep().catch(e => logError({ route: "guest-sweep", error: e })), 5 * 60 * 1000).unref();
   sessionMiddleware = session({
     store: new DbSessionStore(),
-    secret: await getSessionSecret(),
+    secret,
     name: "sam.sid",
     resave: false,
     saveUninitialized: false,

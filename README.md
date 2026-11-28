@@ -2,7 +2,9 @@
 
 Sam is a self-hosted AI assistant platform with its own backend, database, accounts and AI connections. No Base44 credits, no third-party builder.
 
-## What works now (v4.1)
+## What works now (v4.2)
+- **Guest mode (v4.2):** "Try Sam without an account" on the login page. Guests get 10 free messages a day on the Fast models. They can't use web search, images, Council, memory or settings; those buttons are hidden for guests rather than faked. Guest chats live only in the server's memory and are never written to the database. They're deleted when the guest leaves, logs in or signs up, or after 2 hours idle. When a guest signs up or logs in, they can tick "Save my guest chat" to keep it. Without the tick, it's deleted. Cost limits: 10 a day per guest, 30 per network (so clearing cookies doesn't help), and 300 a day for all guests together. A failed answer doesn't count.
+- **Sign-up is 13+ (v4.2)**, in line with UK GDPR and the ICO Children's Code. Existing accounts are untouched.
 - **Honest, self-healing AI routing (v4.1):** when a model fails, Sam first tries the same speed on the other providers, then the other speeds, and skips any provider whose API key was rejected. Errors say what really happened ("Gemini is overloaded, try again in a minute", "the admin needs to fix the OpenAI key") with a ref code; admins also see which provider and model failed and why. API keys never appear in messages or logs.
 - **Provider diagnostics (v4.1):** admin dashboard → AI providers shows, per model, whether the key works, whether the provider lists it, the last live test and whether Sam is using it right now. **Test all providers now** sends a tiny message to every model. Sam also tests at startup (at most every 6 hours). Models that don't work are greyed out in the model picker with the reason.
 - **Permanent database:** set `DATABASE_URL` to a Postgres database (Neon's free plan works) and every account, chat, memory and setting survives restarts and redeploys, including on Render's free plan. Without it, Sam uses a local SQLite file as before, which suits running it on your own computer. The same code runs on both.
@@ -81,6 +83,9 @@ Log in to Sam, open **Settings → Become admin**, and enter the code. On Render
 | `MAX_TOKENS` | no | Reply budget for Balanced (default 4000). Fast gets half, Deep gets double |
 | `COUNCIL_CHAIR_SPEED` | no | Tier used to combine council answers (default `balanced`) |
 | `AI_FIRST_TOKEN_TIMEOUT_MS` / `AI_REQUEST_TIMEOUT_MS` | no | How long Sam waits for a model before trying the next one. Defaults: first words within 30 s (Fast), 45 s (Balanced), 90 s (Deep); whole non-streamed answers within 60 / 90 / 150 s |
+| `GUEST_MODE` | no | `0` turns guest mode off (default on) |
+| `GUEST_DAILY_MESSAGES` / `GUEST_NETWORK_DAILY` / `GUEST_DAILY_TOTAL` | no | Guest allowances per day: per guest (default 10), per network (30) and for all guests together (300) |
+| `GUEST_IDLE_MIN` | no | Minutes without a message before a guest chat is deleted (default 120) |
 | `PROVIDER_STARTUP_TEST` | no | `0` turns off the automatic startup test of every model (default on, at most once every 6 hours, a few tokens per model) |
 | `DATABASE_URL` | recommended on hosting | Postgres connection string (e.g. from Neon). When set, Sam stores everything there permanently. When empty, Sam uses `sam.sqlite` in `DATA_DIR` |
 | `PG_POOL_MAX` | no | Max database connections (default 5) |
