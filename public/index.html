@@ -1291,7 +1291,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('autoMenu').class
 $('profileBtn').onclick=e=>{e.stopPropagation();const m=$('profileMenu');m.classList.toggle('hidden');$('profileBtn').setAttribute('aria-expanded',String(!m.classList.contains('hidden')))};
 document.addEventListener('click',()=>{$('autoMenu').classList.add('hidden');$('profileMenu').classList.add('hidden')});
 $('autoPill').onclick=async()=>{try{const d=await api('/api/settings',{method:'PUT',body:JSON.stringify({autoMode:samSettings.autoMode===false})});samSettings=d.settings;applyAppearance(samSettings);if($('setAuto'))$('setAuto').checked=samSettings.autoMode}catch(e){alert(e.message)}};
-function renderOwnerModeButton(){const b=$('ownerModeToggle');if(!b)return;b.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>Private Mode · '+(ownerModeOn?'ON':'OFF')+'</span>';b.classList.toggle('active',ownerModeOn);b.setAttribute('aria-pressed',String(ownerModeOn));b.title='Creator-only advanced response mode. Not incognito: your Ezer chats are still saved.'}
+function renderOwnerModeButton(){const b=$('ownerModeToggle');if(!b)return;b.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg><span>Private Mode · '+(ownerModeOn?'ON':'OFF')+'</span>';b.classList.toggle('active',ownerModeOn);document.body.classList.toggle('owner-private',!!(ownerModeOn&&samIsOwner));b.setAttribute('aria-pressed',String(ownerModeOn));b.title='Creator-only advanced response mode. Not incognito: your Ezer chats are still saved.'}
 $('ownerModeToggle').onclick=()=>{if(!samIsOwner)return;ownerModeOn=!ownerModeOn;renderOwnerModeButton();if(ownerModeOn)addMsg('🔒 **Private Mode enabled.** Sam will use a more direct, advanced working style and the Creator permissions available to your account. Ezer still saves this conversation. Core safety, privacy and security protections remain active.','sam')};
 function closeDrawer(){document.body.classList.remove('drawer-open')}
 $('menuBtn').onclick=e=>{e.stopPropagation();document.body.classList.toggle('drawer-open')};
@@ -1308,5 +1308,180 @@ document.querySelectorAll('[data-task]').forEach(b=>b.onclick=async()=>{
     if(t==='code'){await createConversation('coding');fillPrompt('Here is my code and the error. Find the bug and explain the fix:\n\n')}
     if(t==='plan'){fillPrompt('Help me plan my week. My deadlines and commitments are: ')}
   }catch(e){addMsg(e.message,'sam')}});
+
+// ---------------- Ezer Image Generation Studio ----------------
+let imageStudioData=null;
+async function loadImageStudio(){
+  const status=$('imageProviderStatus'),gallery=$('imageGallery');
+  if(status)status.textContent='Checking image provider…';
+  try{
+    const [s,g]=await Promise.all([api('/api/images/status'),api('/api/images')]);
+    imageStudioData=g.images||[];
+    status.textContent=s.configured?'Connected: '+s.model+' · Images are stored in Ezer’s server storage.':'Image generation is not connected. The Ezer Creator needs to add EZER_IMAGE_API_KEY or a working OPENAI_API_KEY in the server environment.';
+    renderImageGallery(imageStudioData);
+  }catch(e){if(status)status.textContent=e.message;if(gallery)gallery.textContent='Could not load your image gallery.'}
+}
+function renderImageGallery(images){
+  const box=$('imageGallery');box.innerHTML='';
+  if(!images||!images.length){box.append(mk('p','muted','No images yet. Generate or edit an image to start your gallery.'));return}
+  images.forEach(item=>{
+    const fig=document.createElement('figure'),img=document.createElement('img'),cap=document.createElement('figcaption'),actions=document.createElement('div'),del=document.createElement('button');
+    img.loading='lazy';img.alt=item.prompt||'Generated image';img.src='/api/images/'+encodeURIComponent(item.id)+'/content';
+    cap.textContent=(item.prompt||'Generated image').slice(0,120)+' · '+new Date(item.created_at.replace(' ','T')+'Z').toLocaleDateString('en-GB');
+    actions.className='studio-toolbar';del.className='secondary danger';del.textContent='Delete';del.onclick=async()=>{if(!confirm('Delete this image from your Ezer gallery?'))return;try{await api('/api/images/'+item.id,{method:'DELETE'});loadImageStudio()}catch(e){alert(e.message)}};
+    actions.append(del);fig.append(img,cap,actions);box.append(fig);
+  });
+}
+$('imageGenerate').onclick=async()=>{
+  const msg=$('imageGenerateMsg'),button=$('imageGenerate');msg.textContent='';
+  if(!$('imagePrompt').value.trim()){msg.textContent='Describe the image first.';return}
+  button.disabled=true;button.textContent='Generating…';
+  try{const d=await api('/api/images/generate',{method:'POST',body:JSON.stringify({prompt:$('imagePrompt').value,size:$('imageSize').value})});msg.textContent='Image generated and saved to your gallery.';afterCharge(d.credits);loadCredits();await loadImageStudio()}
+  catch(e){msg.textContent=e.message}
+  finally{button.disabled=false;button.textContent='Generate image'}
+};
+$('imageEdit').onclick=async()=>{
+  const msg=$('imageEditMsg'),button=$('imageEdit'),file=$('imageEditFile').files[0];
+  msg.textContent='';
+  if(!file){msg.textContent='Choose a PNG, JPEG or WebP image first.';return}
+  if(!$('imageEditPrompt').value.trim()){msg.textContent='Describe the changes you want.';return}
+  const fd=new FormData();fd.append('image',file);fd.append('prompt',$('imageEditPrompt').value);fd.append('size',$('imageSize').value);
+  button.disabled=true;button.textContent='Editing…';
+  try{
+    const r=await fetch('/api/images/edit',{method:'POST',body:fd});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===401)throw authExpired(d);
+    if(!r.ok)throw Error(d.error||'Image editing failed.');
+    msg.textContent='Edited image saved to your gallery.';afterCharge(d.credits);loadCredits();await loadImageStudio();
+  }catch(e){msg.textContent=e.message}
+  finally{button.disabled=false;button.textContent='Edit selected image'}
+};
+$('imageRefresh').onclick=loadImageStudio;
+
+// ---------------- Ezer Productivity Centre ----------------
+let workspaceState={projects:[],tasks:[],notes:[]};
+async function loadProductivity(){
+  try{
+    const [p,t,n]=await Promise.all([api('/api/workspaces/projects'),api('/api/workspaces/tasks'),api('/api/workspaces/notes')]);
+    workspaceState={projects:p.projects||[],tasks:t.tasks||[],notes:n.notes||[]};
+    renderWorkspace();
+  }catch(e){$('projectList').textContent=e.message;$('taskList').textContent=e.message;$('noteList').textContent=e.message}
+}
+function refillProjectSelect(selectId){
+  const sel=$(selectId),current=sel.value;sel.innerHTML='<option value="">No project</option>';
+  workspaceState.projects.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.name;sel.append(o)});
+  if([...sel.options].some(o=>o.value===current))sel.value=current;
+}
+function renderWorkspace(){
+  refillProjectSelect('taskProject');refillProjectSelect('noteProject');
+  const projects=$('projectList');projects.innerHTML='';
+  if(!workspaceState.projects.length)projects.append(mk('p','muted','Create a project to organise related work.'));
+  workspaceState.projects.forEach(p=>{
+    const row=mk('div','studio-item'),copy=mk('div','main-copy'),actions=mk('div','actions'),del=mk('button','secondary danger','Delete');
+    copy.append(mk('b',null,p.name),mk('div','muted',p.description||((p.open_tasks||0)+' open tasks')));
+    del.onclick=async()=>{if(!confirm('Delete this project? Its tasks and notes will remain, but become unassigned.'))return;try{await api('/api/workspaces/projects/'+p.id,{method:'DELETE'});await loadProductivity()}catch(e){alert(e.message)}};
+    actions.append(del);row.append(copy,actions);projects.append(row);
+  });
+  const tasks=$('taskList');tasks.innerHTML='';
+  if(!workspaceState.tasks.length)tasks.append(mk('p','muted','Your tasks will appear here.'));
+  workspaceState.tasks.forEach(t=>{
+    const row=mk('div','studio-item'),copy=mk('div','main-copy'),actions=mk('div','actions');
+    copy.append(mk('b',null,t.title),mk('div','muted',(t.project_name?t.project_name+' · ':'')+(t.priority||'normal')+' priority'+(t.due_at?' · Due '+new Date(t.due_at).toLocaleDateString('en-GB'):'')));
+    if(t.description)copy.append(mk('div','muted',t.description));
+    const status=mk('button','secondary',t.status==='done'?'Reopen':'Complete');status.onclick=async()=>{try{await api('/api/workspaces/tasks/'+t.id,{method:'PATCH',body:JSON.stringify({status:t.status==='done'?'todo':'done'})});await loadProductivity()}catch(e){alert(e.message)}};
+    const del=mk('button','secondary danger','Delete');del.onclick=async()=>{try{await api('/api/workspaces/tasks/'+t.id,{method:'DELETE'});await loadProductivity()}catch(e){alert(e.message)}};
+    actions.append(status,del);row.append(copy,actions);tasks.append(row);
+  });
+  const notes=$('noteList');notes.innerHTML='';
+  if(!workspaceState.notes.length)notes.append(mk('p','muted','Your saved notes will appear here.'));
+  workspaceState.notes.forEach(n=>{
+    const row=mk('div','studio-item'),copy=mk('div','main-copy'),actions=mk('div','actions');
+    copy.append(mk('b',null,n.title),mk('div','muted',(n.body||'').slice(0,260)));
+    const del=mk('button','secondary danger','Delete');del.onclick=async()=>{if(!confirm('Delete this note?'))return;try{await api('/api/workspaces/notes/'+n.id,{method:'DELETE'});await loadProductivity()}catch(e){alert(e.message)}};
+    actions.append(del);row.append(copy,actions);notes.append(row);
+  });
+}
+$('projectCreate').onclick=async()=>{
+  const msg=$('projectMsg');msg.textContent='';
+  try{await api('/api/workspaces/projects',{method:'POST',body:JSON.stringify({name:$('projectName').value,description:$('projectDescription').value})});$('projectName').value='';$('projectDescription').value='';await loadProductivity();msg.textContent='Project saved.'}
+  catch(e){msg.textContent=e.message}
+};
+$('taskCreate').onclick=async()=>{
+  const msg=$('taskMsg');msg.textContent='';
+  try{const due=$('taskDue').value?new Date($('taskDue').value+'T12:00:00').toISOString():null;await api('/api/workspaces/tasks',{method:'POST',body:JSON.stringify({title:$('taskTitle').value,dueAt:due,projectId:$('taskProject').value||null,priority:$('taskPriority').value})});$('taskTitle').value='';$('taskDue').value='';await loadProductivity();msg.textContent='Task saved.'}
+  catch(e){msg.textContent=e.message}
+};
+$('noteCreate').onclick=async()=>{
+  const msg=$('noteMsg');msg.textContent='';
+  try{await api('/api/workspaces/notes',{method:'POST',body:JSON.stringify({title:$('noteTitle').value,body:$('noteBody').value,projectId:$('noteProject').value||null})});$('noteTitle').value='';$('noteBody').value='';await loadProductivity();msg.textContent='Note saved.'}
+  catch(e){msg.textContent=e.message}
+};
+
+// ---------------- Ezer App Builder v1 ----------------
+let currentBuilderApp=null;
+function previewBuilderHtml(raw){
+  const frame=$('builderPreview');
+  const csp='<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data: blob:; media-src data: blob:; connect-src \'none\'; font-src \'none\'; object-src \'none\'; frame-src \'none\'; worker-src \'none\'; base-uri \'none\'; form-action \'none\'">';
+  let html=String(raw||'');
+  if(/<head[^>]*>/i.test(html))html=html.replace(/<head([^>]*)>/i,'<head$1>'+csp);
+  else html=csp+html;
+  frame.srcdoc=html;
+}
+async function loadBuilderList(){
+  const box=$('builderApps');box.innerHTML='';
+  try{
+    const d=await api('/api/app-builder/apps');
+    if(!d.apps.length)box.append(mk('p','muted','Your saved apps will appear here.'));
+    d.apps.forEach(a=>{
+      const row=mk('div','studio-item'),copy=mk('div','main-copy'),actions=mk('div','actions'),open=mk('button','secondary','Open');
+      copy.append(mk('b',null,a.title),mk('div','muted',a.description||'Browser app prototype'));
+      open.onclick=()=>openBuilderApp(a.id);
+      actions.append(open);row.append(copy,actions);box.append(row);
+    });
+  }catch(e){box.textContent=e.message}
+}
+async function openBuilderApp(id){
+  const msg=$('builderMsg');msg.textContent='';
+  try{const d=await api('/api/app-builder/apps/'+id);currentBuilderApp=d.app;$('builderTitle').value=d.app.title;$('builderDescription').value=d.app.description||'';$('builderPrompt').value='';$('builderPreviewTitle').textContent=d.app.title;previewBuilderHtml(d.app.html);$('builderDownload').disabled=false;$('builderVersions').disabled=false;$('builderDelete').disabled=false;$('builderVersionList').innerHTML='';msg.textContent='Opened saved app.'}
+  catch(e){msg.textContent=e.message}
+}
+$('builderGenerate').onclick=async()=>{
+  const msg=$('builderMsg'),button=$('builderGenerate');msg.textContent='';
+  if(!$('builderPrompt').value.trim()){msg.textContent='Describe the app you want built.';return}
+  button.disabled=true;button.textContent='Building… Sam is creating your app';
+  try{
+    const body={title:$('builderTitle').value,description:$('builderDescription').value,prompt:$('builderPrompt').value};
+    if(currentBuilderApp)body.appId=currentBuilderApp.id;
+    const d=await api('/api/app-builder/generate',{method:'POST',body:JSON.stringify(body)});
+    currentBuilderApp=d.app;previewBuilderHtml(d.app.html);$('builderPreviewTitle').textContent=d.app.title;$('builderDownload').disabled=false;$('builderVersions').disabled=false;$('builderDelete').disabled=false;
+    msg.textContent='App built and saved. Your previous versions are kept.';loadCredits();await loadBuilderList();
+  }catch(e){msg.textContent=e.message}
+  finally{button.disabled=false;button.textContent='Build with Sam'}
+};
+$('builderDownload').onclick=()=>{
+  if(!currentBuilderApp)return;
+  const blob=new Blob([currentBuilderApp.html],{type:'text/html;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=(currentBuilderApp.title||'ezer-app').replace(/[^a-z0-9-_]+/gi,'-').toLowerCase()+'.html';document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);
+};
+$('builderVersions').onclick=async()=>{
+  if(!currentBuilderApp)return;const box=$('builderVersionList');box.innerHTML='Loading versions…';
+  try{
+    const d=await api('/api/app-builder/apps/'+currentBuilderApp.id+'/versions');box.innerHTML='';
+    if(!d.versions.length){box.append(mk('p','muted','No saved versions yet.'));return}
+    d.versions.forEach(v=>{
+      const row=mk('div','studio-item'),copy=mk('div','main-copy'),restore=mk('button','secondary','Restore');
+      copy.append(mk('b',null,'Version '+v.id),mk('div','muted',new Date(v.created_at.replace(' ','T')+'Z').toLocaleString('en-GB')+(v.prompt?' · '+v.prompt.slice(0,90):'')));
+      restore.onclick=async()=>{if(!confirm('Restore this earlier version? A new version will be saved.'))return;try{const r=await api('/api/app-builder/apps/'+currentBuilderApp.id+'/restore/'+v.id,{method:'POST',body:JSON.stringify({})});currentBuilderApp=r.app;previewBuilderHtml(r.app.html);$('builderPreviewTitle').textContent=r.app.title;box.textContent='Version restored and saved.'}catch(e){box.textContent=e.message}};
+      row.append(copy,restore);box.append(row);
+    });
+  }catch(e){box.textContent=e.message}
+};
+$('builderDelete').onclick=async()=>{
+  if(!currentBuilderApp||!confirm('Delete this app and its saved versions?'))return;
+  try{await api('/api/app-builder/apps/'+currentBuilderApp.id,{method:'DELETE'});currentBuilderApp=null;$('builderPreview').srcdoc='';$('builderPreviewTitle').textContent='Live preview';$('builderDownload').disabled=$('builderVersions').disabled=$('builderDelete').disabled=true;$('builderVersionList').innerHTML='';$('builderMsg').textContent='App deleted.';await loadBuilderList()}
+  catch(e){$('builderMsg').textContent=e.message}
+};
+async function loadAppBuilder(){await loadBuilderList();if(!currentBuilderApp){$('builderPreview').srcdoc='';$('builderPreviewTitle').textContent='Live preview';$('builderDownload').disabled=$('builderVersions').disabled=$('builderDelete').disabled=true}}
+
 boot();
 </script></body></html>
