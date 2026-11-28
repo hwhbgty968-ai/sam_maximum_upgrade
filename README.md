@@ -40,7 +40,7 @@ Sam is a self-hosted AI assistant platform with its own backend, database, accou
 Image generation isn't connected yet, so that button is disabled. See [docs/ROADMAP.md](docs/ROADMAP.md) for the full plan and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the code fits together.
 
 ## Run locally
-Requires **Node.js 20.18 or newer** (needed by the web-search library).
+Requires **Node.js 20.18–24** (22 LTS recommended, and it's what Render uses via `.node-version`). Brand-new Node releases can break the database library until it publishes builds for them.
 ```bash
 npm install
 cp .env.example .env      # then add at least one AI key
