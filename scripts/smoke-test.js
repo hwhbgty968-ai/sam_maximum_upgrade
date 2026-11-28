@@ -1,4 +1,4 @@
-// Multi-user smoke test. Start Sam first (npm start), then in another terminal: npm run test:smoke
+// Multi-user smoke test. Start Ezer first (npm start), then in another terminal: npm run test:smoke
 // Options:
 //   BASE_URL=https://your-sam.onrender.com npm run test:smoke      test a deployed copy
 //   SMOKE_ADMIN_USER=you SMOKE_ADMIN_PASS='...' npm run test:smoke  also test the admin dashboard
@@ -31,7 +31,7 @@ function check(name, ok, detail = "") {
 }
 
 (async () => {
-  console.log(`Testing Sam at ${BASE}\n`);
+  console.log(`Testing Ezer at ${BASE}\n`);
   const id = Date.now().toString(36);
   const A = client(), A2 = client(), B = client(), anon = client();
   const userA = "smokeA_" + id, userB = "smokeB_" + id;
@@ -266,4 +266,4 @@ function check(name, ok, detail = "") {
   console.log(`\n${passed} passed, ${failed} failed`);
   console.log(`(Test account ${userA} was left in the database — delete it from /admin if you like.)`);
   process.exit(failed ? 1 : 0);
-})().catch(e => { console.error("\nCould not run tests:", e.message, "\nIs Sam running at " + BASE + "?"); process.exit(1); });
+})().catch(e => { console.error("\nCould not run tests:", e.message, "\nIs Ezer running at " + BASE + "?"); process.exit(1); });

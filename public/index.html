@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#0a0e16"><title>SAM — Personal AI</title>
+<meta name="theme-color" content="#0a0e16"><title>Ezer — One platform. Endless possibilities.</title><meta name="description" content="Ezer: one platform, endless possibilities. Chat with Sam, your built-in AI assistant.">
 <style>
 :root{--bg:#0a0e16;--side:#0c111b;--panel:#111826;--panel2:#161e2e;--line:#1d2636;--line2:#2a3548;--text:#e8edf5;--muted:#8d97aa;--dim:#5f6a7f;--green:#3ddc97;--warnc:#e8c27a;--bad:#f39a9a;--grad:linear-gradient(135deg,#5ad1ee 0%,#a78bfa 100%);--accent:#4cc3e6;--accent-ink:#06202b;--radius:14px}
 body[data-accent=blue]{--accent:#7aa7ff;--accent-ink:#07152e}body[data-accent=purple]{--accent:#b49cff;--accent-ink:#1a1033}body[data-accent=green]{--accent:#5fd6a0;--accent-ink:#062317}body[data-accent=orange]{--accent:#ffb36b;--accent-ink:#2b1604}body[data-accent=silver]{--accent:#d7dbe2;--accent-ink:#17191e}
@@ -24,6 +24,7 @@ a{color:var(--accent)}
 .brand-row{display:flex;align-items:center;gap:14px;padding:4px 6px}
 .brand-name{font-weight:700;letter-spacing:.22em;font-size:20px}
 .brand-sub{font-size:11px;letter-spacing:.3em;color:var(--muted);margin-top:2px}
+.tagline{margin:2px 0 8px;font-weight:600;background:linear-gradient(90deg,#46c8f0,#a27bff);-webkit-background-clip:text;background-clip:text;color:transparent}
 /* inputs & buttons */
 .field,.pick,textarea.field{width:100%;background:var(--panel2);border:1px solid var(--line2);border-radius:12px;color:var(--text);padding:11px 13px;outline:none}
 .field:focus,.pick:focus,textarea:focus{border-color:var(--accent)}
@@ -286,21 +287,21 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 </svg>
 <section id="authView" class="auth">
 <div class="auth-card">
-<div class="brand-row"><div class="logo">S</div><div><div class="brand-name">SAM</div><div class="brand-sub">PERSONAL AI</div></div></div>
-<h2>Welcome to Sam</h2><p class="muted">Log in, or create an account to keep your chats, memories and settings.</p>
+<div class="brand-row"><div class="logo">E</div><div><div class="brand-name">EZER</div><div class="brand-sub">ENDLESS POSSIBILITIES</div></div></div>
+<h2>Welcome to Ezer</h2><p class="tagline">One platform. Endless possibilities.</p><p class="muted">Log in, or create an account to keep your chats, memories and settings. Sam, your AI assistant, is ready when you are.</p>
 <label for="username">Username</label><input id="username" class="field" maxlength="24" autocomplete="username" placeholder="3–24 letters, numbers, _ or -">
-<div id="ageField" hidden><label for="age">Age</label><input id="age" class="field" type="number" min="13" max="120" placeholder="Your age (Sam is for ages 13 and up)"></div>
+<div id="ageField" hidden><label for="age">Age</label><input id="age" class="field" type="number" min="13" max="120" placeholder="Your age (Ezer is for ages 13 and up)"></div>
 <label for="password">Password</label><input id="password" class="field" type="password" autocomplete="current-password" placeholder="At least 10 characters">
 <label id="keepGuestRow" class="keep-guest hidden"><input type="checkbox" id="keepGuest"> <span>Save my guest chat to this account (otherwise it's deleted)</span></label>
 <div class="row"><button id="login" class="primary">Log in</button><button id="register" class="secondary">Create account</button></div>
-<button id="guestBtn" class="link-btn guest-link hidden">Try Sam without an account →</button>
+<button id="guestBtn" class="link-btn guest-link hidden">Try Ezer without an account →</button>
 <p id="authMessage" class="notice">Your account is stored on the server hosting this app. Use a unique password.</p>
 </div>
 </section>
 
 <div id="appView" class="app hidden">
 <aside class="sidebar" id="sidebar">
-<div class="brand-row"><div class="logo">S</div><div><div class="brand-name">SAM</div><div class="brand-sub">PERSONAL AI</div></div></div>
+<div class="brand-row"><div class="logo">E</div><div><div class="brand-name">EZER</div><div class="brand-sub">ENDLESS POSSIBILITIES</div></div></div>
 <button class="profile" id="profileBtn" aria-expanded="false"><span class="avatar" id="avatarInitial">S</span><span style="min-width:0;flex:1"><span class="pname" id="welcomeUser" style="display:block"></span><span class="psub" id="profileSub">Personal account</span></span><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg></button>
 <div id="profileMenu" class="profile-menu hidden">
 <button data-tab="settings"><svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg>Settings</button>
@@ -308,7 +309,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <button id="logout"><svg class="ic" aria-hidden="true"><use href="#i-logout"/></svg>Log out</button>
 </div>
 <button id="newChat" class="new-chat"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>New chat</button>
-<nav class="nav" aria-label="Sam sections">
+<nav class="nav" aria-label="Ezer sections">
 <button class="nav-item" data-tab="history"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Chat history</button>
 <button class="nav-item" data-tool="research"><svg class="ic" aria-hidden="true"><use href="#i-flask"/></svg>Research</button>
 <button class="nav-item" data-tool="study"><svg class="ic" aria-hidden="true"><use href="#i-school"/></svg>Study &amp; learning</button>
@@ -419,7 +420,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 </section>
 <section id="modelsSection" class="section page">
 <h2>AI models</h2>
-<p class="muted">Every AI provider Sam supports. Connected ones are ready to use; to connect another, the site admin adds its API key on the server (keys are never entered in the browser).</p>
+<p class="muted">Every AI provider Ezer supports. Connected ones are ready to use; to connect another, the site admin adds its API key on the server (keys are never entered in the browser).</p>
 <div id="modelMarket"></div>
 
 </section>
@@ -445,7 +446,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <div class="row" style="flex-wrap:wrap"><div style="flex:0 0 auto"><button id="themeDark" class="secondary">🌙 Dark</button> <button id="themeLight" class="secondary">☀️ Light</button></div><div class="swatches" id="swatches"></div></div>
 <div class="row" style="margin-top:12px"><button id="saveSettings" class="primary" style="padding:12px 16px;flex:0 0 auto">Save settings</button><span id="settingsMsg" class="notice" style="margin:0"></span></div>
 <hr class="sep"><h3>Voice</h3><p class="muted">Voice uses your browser's built-in speech features. Availability depends on your browser and device.</p><div class="row"><button id="voiceToggle" class="secondary">🔊 Voice replies: OFF</button><button id="speakTest" class="secondary">Test voice</button></div><p class="notice">Microphone input requires browser support and permission. Your microphone is only used when you press the microphone button.</p><hr class="sep"><h3>Account</h3><p class="muted">Signed in as <strong id="accountName"></strong>. Your chats, memories and settings are stored in Sam's own database on its server, so they're there on every device.</p>
-<div id="claimBox" class="hidden"><h4>Become admin</h4><p class="muted">Sam doesn't have an admin yet. Enter the one-time setup code from Sam's server logs (on Render: your service → Logs, look for "Admin setup code"). The first person to enter it becomes the admin.</p><div class="row"><input id="claimCode" class="field" placeholder="XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"><button id="claimBtn" class="primary" style="padding:12px 16px;flex:0 0 auto">Become admin</button></div><p id="claimMsg" class="notice"></p></div>
+<div id="claimBox" class="hidden"><h4>Become admin</h4><p class="muted">Ezer doesn't have an admin yet. Enter the one-time setup code from Ezer's server logs (on Render: your service → Logs, look for "Admin setup code"). The first person to enter it becomes the admin.</p><div class="row"><input id="claimCode" class="field" placeholder="XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"><button id="claimBtn" class="primary" style="padding:12px 16px;flex:0 0 auto">Become admin</button></div><p id="claimMsg" class="notice"></p></div>
 <p class="muted" id="myUsage"></p>
 <h4>Change password</h4>
 <div class="row"><input id="pwCurrent" type="password" class="field" placeholder="Current password" autocomplete="current-password"><input id="pwNew" type="password" class="field" placeholder="New password (10+ characters)" autocomplete="new-password"><button id="pwChange" class="primary" style="padding:12px 16px">Update</button></div>
@@ -461,12 +462,12 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 const $=id=>document.getElementById(id);let voiceOn=false,recognition=null;
 const SESSION_CODES=['AUTH_REQUIRED','PASSWORD_CHANGED','ACCOUNT_DISABLED'];
 function authExpired(d={}){const m=d.code==='ACCOUNT_DISABLED'?'This account has been disabled.':d.code==='PASSWORD_CHANGED'?'Your password was changed — please log in again.':'Your session ended — please log in again.';showAuth(m);return Error(m)}
-async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}})}catch(e){throw Error('Can\'t reach Sam\'s server. Check your connection.')}const d=await r.json().catch(()=>({}));if(r.status===401&&SESSION_CODES.includes(d.code))throw authExpired(d);if(!r.ok)throw Error(d.error||'Something went wrong');return d}
+async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}})}catch(e){throw Error('Can\'t reach Ezer\'s server. Check your connection.')}const d=await r.json().catch(()=>({}));if(r.status===401&&SESSION_CODES.includes(d.code))throw authExpired(d);if(!r.ok)throw Error(d.error||'Something went wrong');return d}
 let registering=false,guestMode=false,guestInfo=null,guestAvailable=false;
 function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
-function showAuth(msg='',mode=false){guestMode=false;document.body.classList.remove('guest');setAuthMode(mode);$('guestBtn').classList.toggle('hidden',!guestAvailable);$('guestBtn').textContent=guestInfo?'← Back to my guest chat':'Try Sam without an account →';$('keepGuestRow').classList.toggle('hidden',!(guestInfo&&guestInfo.hasChat));$('keepGuest').checked=false;$('adminLink').classList.add('hidden');document.body.classList.remove('drawer-open');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
+function showAuth(msg='',mode=false){guestMode=false;document.body.classList.remove('guest');setAuthMode(mode);$('guestBtn').classList.toggle('hidden',!guestAvailable);$('guestBtn').textContent=guestInfo?'← Back to my guest chat':'Try Ezer without an account →';$('keepGuestRow').classList.toggle('hidden',!(guestInfo&&guestInfo.hasChat));$('keepGuest').checked=false;$('adminLink').classList.add('hidden');document.body.classList.remove('drawer-open');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
 function showApp(username){guestMode=false;guestInfo=null;document.body.classList.remove('guest');$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels).then(loadCredits);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);samIsAdmin=!!s.isAdmin;$('profileSub').textContent=(s.isAdmin?'Admin · ':'')+planLine(s.plan);$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
-async function boot(){try{const s=await api('/api/status');guestAvailable=!!s.guestMode;guestInfo=s.guest;if(s.loggedIn)showApp(s.username);else if(s.guest)showGuest();else showAuth();const n=(s.providers||[]).length;$('aiState').textContent=s.aiConfigured?n+' AI provider'+(n===1?'':'s'):'No AI key configured';$('systemStatus').textContent=s.aiConfigured?'Sam · Online & Learning':'Sam · Setup needed';$('systemStatus').classList.toggle('warn',!s.aiConfigured);$('chipOnline').textContent=s.aiConfigured?'Online':'AI offline';$('chipOnline').classList.toggle('on',!!s.aiConfigured)}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
+async function boot(){try{const s=await api('/api/status');guestAvailable=!!s.guestMode;guestInfo=s.guest;if(s.loggedIn)showApp(s.username);else if(s.guest)showGuest();else showAuth();const n=(s.providers||[]).length;$('aiState').textContent=s.aiConfigured?n+' AI provider'+(n===1?'':'s'):'No AI key configured';$('systemStatus').textContent=s.aiConfigured?'Sam · Online & Learning':'Sam · Setup needed';$('systemStatus').classList.toggle('warn',!s.aiConfigured);$('chipOnline').textContent=s.aiConfigured?'Online':'AI offline';$('chipOnline').classList.toggle('on',!!s.aiConfigured)}catch(e){showAuth('Could not reach the Ezer server. Start it using npm start.')}} 
 const keepGuestChoice=()=>!$('keepGuestRow').classList.contains('hidden')&&$('keepGuest').checked;
 async function afterAuth(d){showApp(d.username);if(d.guestChatId){await loadConversations().catch(()=>{});openConversation(d.guestChatId).catch(()=>{})}}
 $('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value,keepGuestChat:keepGuestChoice()})});afterAuth(d)}catch(e){$('authMessage').textContent=e.message}};
@@ -484,7 +485,7 @@ function renderPlan(){
   if(p.fullAccess){
     head.firstChild.textContent='Admin';
     box.append(mk('div','plan-big','Full access'));
-    box.append(mk('p',null,`You're one of Sam's admins, so nothing is limited for you: no ${name} are taken, there's no daily top-model limit, every feature is included, and the per-minute message limit doesn't apply to your account.`));
+    box.append(mk('p',null,`You're one of Ezer's admins, so nothing is limited for you: no ${name} are taken, there's no daily top-model limit, every feature is included, and the per-minute message limit doesn't apply to your account.`));
     box.append(mk('p','muted','Outside AI providers can still be busy or unavailable at times; when that happens Sam tells you and uses another model where it can. Members see the plans below. You can switch admin full access off in the admin dashboard → Plans & credits.'));
   }else if(p.unlimited){
     box.append(mk('div','plan-big','Unlimited '+name));
@@ -507,7 +508,7 @@ function renderPlan(){
     `Web search or research adds ${c.costs.web}. Reading an image adds ${c.costs.images}. Sam Council costs each member model plus the one that combines their answers.`,
     `You see the price next to the Send button before you send, and you're never charged more than that. If Sam has to use a cheaper model, you pay the lower price.`,
     `If an answer fails, it costs nothing. If you press Stop, it only costs ${name} if part of the answer was already written.`,
-    `Every change to your balance is listed below. Sam never takes ${name} anywhere else.`
+    `Every change to your balance is listed below. Ezer never takes ${name} anywhere else.`
   ].forEach(t=>how.append(mk('li',null,t)));box.append(how);
   const det=mk('details');det.append(mk('summary',null,'Model prices'));const mt=mk('table','plan-table');
   Object.entries(c.costs.models).sort((a,b)=>a[1]-b[1]).forEach(([m,v])=>{const tr=mk('tr');tr.append(mk('td',null,m),mk('td','num',`${v} ${name}`));mt.append(tr)});det.append(mt);box.append(det);
@@ -516,7 +517,7 @@ function renderPlan(){
     d.append(mk('div',null,pl.unlimited?'Unlimited '+name:`${fmtN(pl.monthlyCredits)} ${name} a month`));
     if(pl.unlimited&&pl.topModelDailyMessages)d.append(mk('div','muted',`Top models: ${fmtN(pl.topModelDailyMessages)} message${pl.topModelDailyMessages===1?'':'s'} a day, then standard models (no charge)`));
     cmp.append(d)});
-  box.append(cmp);box.append(mk('p','muted','Paid plans aren\'t on sale yet. For now, Sam\'s admin can move accounts between plans.'));
+  box.append(cmp);box.append(mk('p','muted','Paid plans aren\'t on sale yet. For now, Ezer\'s admin can move accounts between plans.'));
   box.append(mk('h4',null,'Recent activity'));
   if(!c.history.length)box.append(mk('p','muted','Nothing yet.'));
   else{const t=mk('table','plan-table');c.history.slice(0,25).forEach(r=>{const tr=mk('tr');const amt=r.kind==='included'?'included':(r.delta>0?'+':'')+fmtN(r.delta);
@@ -628,7 +629,7 @@ async function streamChat(body){
   const url=guestMode?'/api/guest/chat':'/api/chat';
   const payload=guestMode?{message:body.message}:{...body,model:$('modelPick').value,speed:$('speedPick').value,...(body.mode==='council'||body.council?{councilModels:councilSelection()}:{})};
   try{r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:activeController.signal})}
-  catch(e){if(e.name==='AbortError')return {answer:'',streamed:true,stopped:true};throw Error('Can\'t reach Sam\'s server. Check your connection.')}
+  catch(e){if(e.name==='AbortError')return {answer:'',streamed:true,stopped:true};throw Error('Can\'t reach Ezer\'s server. Check your connection.')}
   if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(guestMode&&d.code==='GUEST_REQUIRED'){guestEnded();throw Error(d.error)}if(guestMode&&d.code==='GUEST_LIMIT'){guestInfo={...guestInfo,remaining:0};renderGuestBar()}if(d.code==='NO_CREDITS'||d.code==='NOT_INCLUDED')loadCredits();if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
   const el=addMsg('','sam');const md=()=>el.querySelector('.md');
   md().classList.add('typing');md().innerHTML='<span class="status-line">Thinking…</span>';
@@ -898,7 +899,7 @@ async function openConversation(id) {
 async function createConversation(mode = "chat", assistant = null) {
   const d = await api("/api/conversations", { method: "POST", body: JSON.stringify({ mode, assistant }) });
   const c = d.conversation || d;
-  if (!c.id) throw Error("Sam did not return a new conversation ID.");
+  if (!c.id) throw Error("Ezer did not return a new conversation ID.");
   currentConversationId = c.id;
   currentMode = mode;
   stopEditing();
@@ -972,11 +973,11 @@ $('voiceToggle').onclick=()=>{voiceOn=!voiceOn;$('voiceToggle').textContent='�
 $('mic').onclick=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Speech recognition is not supported in this browser. Try a recent Chrome browser.');return}recognition=new SR();recognition.lang='en-GB';recognition.onresult=e=>{$('prompt').value=e.results[0][0].transcript};recognition.onerror=()=>alert('Microphone unavailable. Check browser permission.');recognition.start()};
 async function loadMyUsage(){try{const u=await api('/api/usage');$('myUsage').textContent=`Your AI usage: ${u.today.requests} request${u.today.requests===1?'':'s'} today, ${u.last30Days.requests} in the last 30 days (~${(u.last30Days.input_tokens+u.last30Days.output_tokens).toLocaleString()} tokens).`}catch(e){}}
 document.querySelectorAll('[data-tab="settings"]').forEach(b=>b.addEventListener('click',loadMyUsage));
-$('claimBtn').onclick=async()=>{$('claimMsg').textContent='';$('claimBtn').disabled=true;try{await api('/api/admin/claim',{method:'POST',body:JSON.stringify({code:$('claimCode').value})});$('claimCode').value='';$('claimMsg').textContent='✅ You are now Sam\'s admin. The Admin dashboard is in your profile menu.';$('adminLink').classList.remove('hidden');$('profileSub').textContent='Admin';setTimeout(()=>$('claimBox').classList.add('hidden'),4000)}catch(e){$('claimMsg').textContent=e.message}finally{$('claimBtn').disabled=false}};
+$('claimBtn').onclick=async()=>{$('claimMsg').textContent='';$('claimBtn').disabled=true;try{await api('/api/admin/claim',{method:'POST',body:JSON.stringify({code:$('claimCode').value})});$('claimCode').value='';$('claimMsg').textContent='✅ You are now Ezer\'s admin. The Admin dashboard is in your profile menu.';$('adminLink').classList.remove('hidden');$('profileSub').textContent='Admin';setTimeout(()=>$('claimBox').classList.add('hidden'),4000)}catch(e){$('claimMsg').textContent=e.message}finally{$('claimBtn').disabled=false}};
 $('pwChange').onclick=async()=>{$('pwMsg').textContent='';try{await api('/api/account/password',{method:'POST',body:JSON.stringify({current:$('pwCurrent').value,next:$('pwNew').value})});$('pwCurrent').value=$('pwNew').value='';$('pwMsg').textContent='✅ Password updated. Other devices have been signed out.'}catch(e){$('pwMsg').textContent=e.message}};
 $('exportData').onclick=()=>{window.location.href='/api/account/export'};
 $('deleteAccount').onclick=()=>{$('deleteBox').classList.toggle('hidden');$('deletePw').focus()};
-$('deleteConfirm').onclick=async()=>{$('deleteMsg').textContent='';if(!confirm('Really delete your Sam account and everything in it?'))return;try{await api('/api/account',{method:'DELETE',body:JSON.stringify({password:$('deletePw').value})});$('deletePw').value='';$('deleteBox').classList.add('hidden');showAuth('Your account has been deleted.')}catch(e){$('deleteMsg').textContent=e.message}};
+$('deleteConfirm').onclick=async()=>{$('deleteMsg').textContent='';if(!confirm('Really delete your Ezer account and everything in it?'))return;try{await api('/api/account',{method:'DELETE',body:JSON.stringify({password:$('deletePw').value})});$('deletePw').value='';$('deleteBox').classList.add('hidden');showAuth('Your account has been deleted.')}catch(e){$('deleteMsg').textContent=e.message}};
 // ---- v3.3: settings, theme, assistants, prompt library, model marketplace ----
 let samSettings={},samOptions=null,samAssistants=[];
 const ACCENT_COLORS={cyan:'#4cc3e6',silver:'#d7dbe2',blue:'#8fb4ff',purple:'#c3a2ff',green:'#7fdca5',orange:'#ffbb7a'};
@@ -1024,7 +1025,7 @@ async function loadLibrary(){
   const mm=$('modelMarket');mm.innerHTML='';
   try{const d=await api('/api/models/catalog');d.providers.forEach(p=>{
     const c=document.createElement('div');c.className='lib-card';const h=document.createElement('h5');h.textContent=p.label;const badge=document.createElement('span');const broken=p.connected&&p.keyStatus==='invalid';badge.className='badge '+(p.connected&&!broken?'on':'off');badge.textContent=broken?'Key not working':p.connected?'Connected':'Not connected';h.append(badge);
-    const d2=document.createElement('div');d2.className='d';d2.textContent=p.blurb+(broken?(d.isAdmin?` Its API key was rejected, so Sam isn't using it. Fix ${p.envKey} in the server's environment, or remove it.`:' Temporarily unavailable.'):p.connected?'':(d.isAdmin?` To connect: add ${p.envKey} to the server's environment (get a key at ${p.signup}) and restart Sam.`:' Ask the site admin to connect it.'));c.append(h,d2);
+    const d2=document.createElement('div');d2.className='d';d2.textContent=p.blurb+(broken?(d.isAdmin?` Its API key was rejected, so Ezer isn't using it. Fix ${p.envKey} in the server's environment, or remove it.`:' Temporarily unavailable.'):p.connected?'':(d.isAdmin?` To connect: add ${p.envKey} to the server's environment (get a key at ${p.signup}) and restart Sam.`:' Ask the site admin to connect it.'));c.append(h,d2);
     p.models.forEach(m=>{const r=document.createElement('div');r.className='model-row';const l=document.createElement('span');l.textContent=`${m.tier[0].toUpperCase()+m.tier.slice(1)} · ${m.model}`+(m.verified===true?' ✓':m.verified===false?' (not found)':'');r.append(l);
       if(m.pick){const b=document.createElement('button');b.className='secondary';b.style.padding='4px 9px';b.textContent='Use';b.onclick=()=>{const sel=$('modelPick');if(![...sel.options].some(o=>o.value===m.pick)){const o=document.createElement('option');o.value=m.pick;o.textContent=p.label+' · '+m.model;sel.append(o)}sel.value=m.pick;savePick('model',m.pick);showSection('chat')};r.append(b)}c.append(r)});
     mm.append(c)})}catch(e){mm.textContent=e.message}

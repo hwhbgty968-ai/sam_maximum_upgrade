@@ -1,8 +1,13 @@
-# Sam AI
+# Ezer
 
-Sam is a self-hosted AI assistant platform with its own backend, database, accounts and AI connections. No Base44 credits, no third-party builder.
+**One platform. Endless possibilities.**
 
-## What works now (v4.3)
+Ezer is a self-hosted AI platform with its own backend, database, accounts and AI connections. Its built-in AI assistant is **Sam**. No Base44 credits, no third-party builder.
+
+> **Naming (v4.4):** the platform is **Ezer** (website, logo, page titles, accounts, credits). The assistant inside it is **Sam** (chat replies, personality, the "Sam Council"). Internal names stay as they were, so nothing breaks: the repo, the `sam.sid` cookie, the `sam-backup-v1` backup format, database tables and API routes.
+
+## What works now (v4.4)
+- **Rebranded to Ezer (v4.4):** the website, logo, page titles, login and sign-up, admin dashboard and docs now say Ezer, with the tagline "One platform. Endless possibilities." Sam stays as the assistant's name and personality. Credits are now called "Ezer Credits" (Max: "Unlimited Ezer Credits"); admins can rename them.
 - **Plans and Sam Credits (v4.3, no real money yet):** Free accounts get 1,000 Sam Credits a month. Each answer costs a fixed, published amount: Fast 1, Balanced 5, Deep 12, with some models priced individually. Web search adds 1 and an image adds 2. Members see the price next to Send, and after each answer they see what it cost and what's left. They're never charged more than the price shown. Failed answers are free. **Max** gives "Unlimited Sam Credits": no monthly allowance, and nothing deducted for included features. Its one fair-use rule is published: after a set number of top-model messages a day, Sam answers with standard models (no charge, no block). Members see their plan, prices, limits and every balance change in Settings → Plan & credits. Admins move accounts between plans, add or remove credits, and change every number and the wording in Admin → Plans & credits. No payments yet.
 - **Admins have full access (v4.3.1):** no credits taken, no daily top-model limit, every feature, and no per-minute message limit. The site-wide safety limit still applies. It's on by default and can be switched off in Admin → Plans & credits; admins then follow their own plan. Members' private chats stay private; admins can't read them.
 - **Guest mode (v4.2):** "Try Sam without an account" on the login page. Guests get 10 free messages a day on the Fast models. They can't use web search, images, Council, memory or settings; those buttons are hidden for guests rather than faked. Guest chats live only in the server's memory and are never written to the database. They're deleted when the guest leaves, logs in or signs up, or after 2 hours idle. When a guest signs up or logs in, they can tick "Save my guest chat" to keep it. Without the tick, it's deleted. Cost limits: 10 a day per guest, 30 per network (so clearing cookies doesn't help), and 300 a day for all guests together. A failed answer doesn't count.

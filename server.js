@@ -67,7 +67,7 @@ app.use("/api", (req, res, next) => {
 let sessionMiddleware = null;
 app.use((req, res, next) => sessionMiddleware
   ? sessionMiddleware(req, res, next)
-  : res.status(503).json({ error: "Sam is still starting up. Try again in a moment." }));
+  : res.status(503).json({ error: "Ezer is still starting up. Try again in a moment." }));
 
 // Generous per-IP limit (schools/homes share one IP) + strict limits where abuse matters.
 app.use("/api", rateLimit({ windowMs: 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false }));
@@ -172,7 +172,7 @@ app.post("/api/register", registerLimiter, authLimiter, async (req, res, next) =
     const age = Number(req.body.age);
     if (!/^[a-zA-Z0-9_-]{3,24}$/.test(username)) return res.status(400).json({ error: "Username must be 3–24 letters, numbers, _ or -." });
     if (!Number.isInteger(age) || age < 1 || age > 120) return res.status(400).json({ error: "Please enter a valid age." });
-    if (age < MIN_AGE) return res.status(400).json({ error: `Sam is for ages ${MIN_AGE} and up.`, code: "TOO_YOUNG" });
+    if (age < MIN_AGE) return res.status(400).json({ error: `Ezer is for ages ${MIN_AGE} and up.`, code: "TOO_YOUNG" });
     if (password.length < 10) return res.status(400).json({ error: "Use a password with at least 10 characters." });
     if (await usernameTaken(username)) return res.status(409).json({ error: "That username is already taken." });
 
@@ -247,7 +247,7 @@ app.post("/api/guest/end", (req, res) => {
 // Body: { message }. Streams like /api/chat. Fast models only (Balanced as a backup), no web, images,
 // memory or council. A message only counts against the daily limit if Sam actually answers.
 app.post("/api/guest/chat", requireGuest, guestChatLimiter, wrap(async (req, res) => {
-  if (!ai.isConfigured()) return res.status(503).json({ error: "Sam isn't connected to an AI provider yet." });
+  if (!ai.isConfigured()) return res.status(503).json({ error: "Ezer isn't connected to an AI provider yet." });
   const guestId = req.session.guestId;
   const message = String(req.body.message || "").trim();
   if (!message) return res.status(400).json({ error: "Type a message first." });
@@ -538,7 +538,7 @@ async function buildSystemPrompt(userId, mode, { assistant = null, settings = nu
   const memoryText = memoryRows.length ? memoryRows.map(x => "- " + x.content).join("\n") : "No saved memories yet.";
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   return [
-    "You are Sam, a funny, entertaining, futuristic personal AI assistant. Be warm, clever, concise and helpful.",
+    "You are Sam, the AI assistant built into Ezer (the platform the user is on). You are funny, entertaining, futuristic, warm, clever, concise and helpful. Your name is Sam; the platform is Ezer.",
     "Format replies in markdown: short paragraphs, bullet lists where useful, **bold** for key points, fenced code blocks for code.",
     "Explain school topics clearly when asked. Never pretend to have performed actions you cannot perform.",
     `Today is ${today}.`,
@@ -790,7 +790,7 @@ app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.ht
 app.use((err, req, res, next) => {
   logError({ requestId: req.id, userId: req.session?.userId, route: `${req.method} ${req.path}`, error: err });
   if (res.headersSent) return res.end();
-  res.status(500).json({ error: `Something went wrong on Sam's server. Please try again. (ref: ${req.id})` });
+  res.status(500).json({ error: `Something went wrong on Ezer's server. Please try again. (ref: ${req.id})` });
 });
 
 process.on("unhandledRejection", err => logError({ route: "unhandledRejection", error: err }));

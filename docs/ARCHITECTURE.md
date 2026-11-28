@@ -1,4 +1,6 @@
-# Sam architecture and technical decisions
+# Ezer architecture and technical decisions
+
+Ezer is the platform; Sam is its built-in AI assistant. Code, routes, tables and cookies keep their original `sam` names on purpose.
 
 ## Layout
 ```
