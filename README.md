@@ -2,7 +2,9 @@
 
 Sam is a self-hosted AI assistant platform with its own backend, database, accounts and AI connections. No Base44 credits, no third-party builder.
 
-## What works now (v3.3)
+## What works now (v3.4)
+- **New design** based on the original Base44 Sam: dark navy with a cyan-to-purple brand, a sidebar with profile, New chat, sections and chat search, a status bar, a welcome screen with task cards and recent chats, suggested prompts, and a big composer with **Web**, **Auto** (assistant, model and speed) and **Council** toggles. It works on phones through a slide-out menu. Features that aren't built yet are shown as "Soon", not fake buttons.
+
 - **Accounts:** register, log in and log out. Sessions last 30 days. Each user's chats and memories are private to them.
 - **Multi-model AI:** Gemini, Claude, OpenAI and DeepSeek. Add whichever keys you have.
   - Model picker, or **Auto**, which picks a model by task.
