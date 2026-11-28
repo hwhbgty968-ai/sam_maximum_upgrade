@@ -82,6 +82,14 @@ textarea.wide{width:100%;min-height:110px;box-sizing:border-box;line-height:1.5}
       <p class="muted">"Test" sends a tiny message to every model (a few tokens each) and shows whether it really answers. Ezer also tests automatically at most every 6 hours. Models that fail for a lasting reason (no quota, model missing, bad key) are skipped until the next test.</p>
       <div class="panel"><table id="provTable"></table></div>
       <div id="provNotes" class="muted" style="margin-top:10px"></div>
+      <div class="fieldset" style="margin-top:16px"><h3>Provider settings</h3>
+        <p class="muted">API keys stay in Render's Environment settings and are never shown here. Switching a provider off stops Sam using it without deleting its key.</p>
+        <div class="checks" id="rtProviders"></div>
+        <h3 style="margin-top:14px">Who goes first for each task</h3>
+        <p class="muted">When a member leaves the model on Auto (or picks "Best available"), Sam detects the kind of task and tries these providers first, then every other working one as a backup. They're starting points based on each provider's published strengths, not guarantees. Leave a line empty to use the normal order (<code id="rtOrder"></code>).</p>
+        <div class="form-grid" id="rtTasks"></div>
+        <div class="bar"><button id="rtSave">Save provider settings</button><button id="rtDefaults">Fill in the defaults</button><span class="muted" id="rtMsg"></span></div>
+      </div>
     </section>
 
     <section id="s-credits" class="section">
@@ -304,7 +312,26 @@ function renderProviders(p, missing = [], lastTest = null) {
 async function loadProviders() {
   const d = await api("/api/admin/providers");
   renderProviders(d.providers, d.missing, d.lastTest);
+  await loadRoutingSettings();
 }
+let routingData = null;
+function fillRouting(r) {
+  const box = $("rtProviders"); box.innerHTML = "";
+  routingData.providers.forEach(p => box.append(el("label", {}, el("input", { type: "checkbox", "data-prov": p.id, ...(r.disabled.includes(p.id) ? {} : { checked: "" }) }),
+    ` ${p.label} — ${!p.configured ? "no key" : p.key === "invalid" ? "key rejected" : "key set"}`)));
+  const g = $("rtTasks"); g.innerHTML = "";
+  for (const [t, label] of Object.entries(routingData.tasks)) g.append(el("div", {}, el("label", { for: "rt_" + t }, label), el("input", { id: "rt_" + t, value: (r.tasks[t] || []).join(", "), placeholder: "normal order" })));
+  $("rtOrder").textContent = routingData.order;
+}
+async function loadRoutingSettings() { routingData = await api("/api/admin/routing"); fillRouting(routingData.routing); }
+$("rtDefaults").onclick = () => { fillRouting(routingData.defaults); $("rtMsg").textContent = "Defaults filled in — press Save to use them."; };
+$("rtSave").onclick = async () => {
+  $("rtMsg").textContent = "";
+  const disabled = [...document.querySelectorAll("[data-prov]")].filter(i => !i.checked).map(i => i.dataset.prov), tasks = {};
+  for (const t of Object.keys(routingData.tasks)) tasks[t] = $("rt_" + t).value.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  try { const d = await api("/api/admin/routing", { method: "PUT", body: JSON.stringify({ routing: { disabled, tasks } }) }); routingData.routing = d.routing; fillRouting(d.routing); $("rtMsg").textContent = "Saved. Applies to the next message."; }
+  catch (e) { $("rtMsg").textContent = e.message; }
+};
 
 async function loadErrors() {
   const d = await api("/api/admin/errors");

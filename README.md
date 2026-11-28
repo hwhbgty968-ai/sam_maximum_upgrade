@@ -6,7 +6,13 @@ Ezer is a self-hosted AI platform with its own backend, database, accounts and A
 
 > **Naming (v4.4):** the platform is **Ezer** (website, logo, page titles, accounts, credits). The assistant inside it is **Sam** (chat replies, personality, the "Sam Council"). Internal names stay as they were, so nothing breaks: the repo, the `sam.sid` cookie, the `sam-backup-v1` backup format, database tables and API routes.
 
-## What works now (v4.6)
+## What works now (v4.7)
+- **Smarter model choice (v4.7):**
+  - **Task routing:** on Auto, Sam works out whether a message is coding, writing, maths and reasoning, a long document, research, reading an image, or everyday chat, and tries the providers best suited to it first, with every other working provider as backup. Your own model pick always comes first.
+  - **Best available:** a new speed option that uses the strongest working model for the task. It's priced like Deep, and Max's daily top-model limit applies.
+  - Each answer gets a short note saying how it was routed and which plugins were used.
+  - **Admin → AI providers → Provider settings:** switch a provider off without deleting its key, and set which providers go first for each task. These are starting points based on published strengths, not guarantees. Ezer won't let you switch off every working provider. Keys stay in Render and are never shown.
+  - **Council:** the member picker (up to 4 models) now shows the price per message. The combining model is told that models agreeing isn't proof, so it never calls an answer "verified" unless sources back it.
 - **Plugins and Marketplace (v4.6):**
   - **Marketplace** (sidebar): browse, search and filter plugins by category, see what each one can do and what it sends, connect and disconnect, and see a log of every time Sam used one.
   - **Working plugins:** Web search (on by default, as before), Wikipedia, Weather (Open-Meteo) and Calculator. Nothing else runs until you connect it, and a plugin only gets the words it needs (a town name, a topic), never chats, memories or account details.
