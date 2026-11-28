@@ -35,10 +35,10 @@ These are extra requirements on top of everything below. The **Stage** column gi
 
 | Feature | Status now | Stage | Depends on |
 |---|---|---|---|
-| **Model Marketplace** (discover, compare, connect models) | 🟡 Admin sees each provider's models and status; users pick models | 2 (**v3.3**) | Nothing. "Connecting" a provider means an admin adds its API key on the server; keys are never typed into the browser |
-| **Prompt Library** (reusable prompts, templates, custom instructions) | ❌ | 2 (**v3.3**) | Nothing |
-| **Custom personalities and specialist assistants** | ❌ | 2 (**v3.3**) | Nothing |
-| **Automatic task recognition and tool selection** | 🟡 Keyword search trigger and tier routing | 2 (**v3.3**) for modes that exist; grows as each tool lands | Each tool it routes to (Study Centre, images, slides…) |
+| **Model Marketplace** (discover, compare, connect models) | ✅ v3.3 | 2 | Nothing. "Connecting" a provider means an admin adds its API key on the server; keys are never typed into the browser |
+| **Prompt Library** (reusable prompts, templates, custom instructions) | ✅ v3.3 | 2 | Nothing |
+| **Custom personalities and specialist assistants** | ✅ v3.3 | 2 | Nothing |
+| **Automatic task recognition and tool selection** | ✅ v3.3 for coding, research, web and tutor (local and free, no extra AI call) | 2; grows as each tool lands | Each tool it routes to (Study Centre, images, slides…) |
 | **File Library** (uploaded and generated files) | ❌ | 3 | Storage decision (disk, or R2/S3 for several servers); file parsers |
 | **Background agents** with progress and notifications | ❌ | 6 | 🏗 Job queue plus a worker process; notifications need push or email (🔌) |
 | **Collaborative workspaces and sharing with friends** | ❌ | 7 | Projects and File Library, a permissions model, and moderation if anything goes public |
@@ -151,7 +151,7 @@ These are extra requirements on top of everything below. The **Stage** column gi
 | Stage | Contents | Needs from you |
 |---|---|---|
 | **1. Foundation** | ✅ Login, messaging, multi-model core, admin, account security, error log, backups | Decide on hosting: paid disk or Neon Postgres |
-| **2. Advanced AI** | ✅ v3.2 chat essentials. **Next, v3.3:** Settings Centre, personalities and specialist assistants, Prompt Library, Model Marketplace, automatic mode selection. Then: smart memory, real web search, research reports, document reading | A search API key (free tier is fine) |
+| **2. Advanced AI** | ✅ v3.2 chat essentials. ✅ v3.3 Settings Centre, assistants, Prompt Library, Model Marketplace, automatic task recognition. **Next:** smart memory, real web search, research reports, document reading | A search API key (free tier is fine) |
 | **3. Education and productivity** | Frontend rebuild, Study Centre, files and projects, tasks, PWA, then Google integrations | A Google Cloud OAuth app |
 | **4. Creative Studio** | Images, presentations, text-to-speech and speech-to-text, then video | Budget for image and video calls |
 | **5. App Builder** | v1 front-end builder with sandboxed preview and GitHub export; v2 full-stack in containers | A container provider for v2 |

@@ -124,6 +124,41 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .search-hit{display:block;width:100%;text-align:left;padding:8px 10px;border:1px solid #ffffff18;border-radius:9px;background:#ffffff08;color:#ddd;cursor:pointer;font-size:12px;margin-bottom:5px}
 .search-hit b{display:block;font-size:11px;color:#9cc4ff;margin-bottom:3px}
 @media(max-width:760px){.tools .tool-heading,.tools .chat-search,#newChat,#conversationList,#toggleArchived,#clearChat{grid-column:1/-1}.conversation-list{max-height:260px}.msg{max-width:96%}.pickers{flex-wrap:wrap}.chathead{flex-wrap:wrap;gap:6px}.compose{flex-wrap:wrap}.compose #prompt{flex:1 1 60%}}
+body{--accent:#d7dbe2}
+body[data-accent=blue]{--accent:#8fb4ff}body[data-accent=purple]{--accent:#c3a2ff}body[data-accent=green]{--accent:#7fdca5}body[data-accent=orange]{--accent:#ffbb7a}
+.send,.primary{background:var(--accent)!important;border-color:var(--accent)!important}
+.tab.active,.conversation-item.active{border-color:var(--accent)!important}
+.kicker{color:var(--accent)}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}.swatch{width:30px;height:30px;border-radius:50%;border:2px solid transparent;cursor:pointer}.swatch.on{border-color:#fff;outline:2px solid #888}
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.settings-grid label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.settings-grid select,.lib-form select{width:100%}
+.check{display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+textarea.field{min-height:80px;resize:vertical}
+.lib-card{border:1px solid #373a43;border-radius:10px;padding:11px;margin:8px 0;font-size:13px}
+.lib-card h5{margin:0 0 4px;font-size:14px}
+.lib-card .d{color:var(--muted);font-size:12px;white-space:pre-wrap;max-height:90px;overflow:hidden}
+.lib-form{display:grid;gap:7px;margin:8px 0 14px}
+.badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;border:1px solid #3a3d46;margin-left:6px;vertical-align:2px}
+.badge.on{color:#7fd1a0;border-color:#3d6b51}.badge.off{color:#e8c27a;border-color:#6b5a2f}
+.model-row{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid #2a2c33;padding:6px 0;font-size:12px}
+body.light{background:#f4f5f7;color:#1b1d22}
+body.light header{background:#fff;border-color:#e2e4e8}
+body.light .panel{background:#fff;border-color:#e2e4e8;box-shadow:0 8px 24px #0000000d}
+body.light .hero h1{color:#14161a}
+body.light .msg.sam{background:#f3f4f6;border-color:#e2e4e8;color:#1b1d22}
+body.light .msg.user{background:#e8ecf3;border-color:#d6dbe4;color:#1b1d22}
+body.light .tools button,body.light .secondary,body.light .tab,body.light .quick button,body.light .conversation-item,body.light .search-hit,body.light .msg-actions button,body.light .pick,body.light .conv-menu-btn,body.light .conv-menu button{background:#f3f4f6!important;border-color:#dcdfe4!important;color:#2a2d33!important}
+body.light .tab.active,body.light .conversation-item.active{background:#e6e9ee!important}
+body.light .compose input,body.light .field,body.light textarea{background:#fff;border-color:#d6dbe2;color:#1b1d22}
+body.light .md pre{background:#f6f8fa;border-color:#e2e4e8}body.light .md code{background:#f0f1f3;border-color:#e2e4e8;color:#1b1d22}
+body.light .md th{background:#f0f1f3}body.light .md th,body.light .md td{border-color:#dcdfe4}
+body.light .avatar{background:#f3f4f6;border-color:#e2e4e8}
+body.light .muted,body.light .via,body.light .notice,body.light .label,body.light .conversation-mode{color:#6b717c}
+body.light .chathead,body.light .compose,body.light header{border-color:#e2e4e8}
+body.light .council-answer,body.light .pin-item,body.light .lib-card,body.light .memory{background:#fafafa;border-color:#e2e4e8}
+body.light .md a{color:#1d5fd1}body.light .brand,body.light .side h2{color:#14161a}
+body.light .send,body.light .primary{color:#14161a!important}
 .typing:after{content:"▍";animation:blink 1s steps(1) infinite;color:#aeb7c5}
 @keyframes blink{50%{opacity:0}}
 
@@ -152,6 +187,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
 <button data-tool="image" disabled title="Coming in a later stage">Image Generation (soon)</button>
 <button data-tool="coding">Coding Assistant</button>
 <button data-tool="council">🏛 Sam Council</button>
+<button data-tab="library">🧰 Assistants, prompts &amp; models</button>
 <div class="tool-heading">CHATS</div>
 <input id="chatSearch" class="field chat-search" placeholder="🔍 Search your chats…" autocomplete="off">
 <button id="newChat">＋ New chat</button>
@@ -160,9 +196,9 @@ button:disabled{opacity:.55;cursor:not-allowed}
 <button id="clearChat" data-tool="clear">Delete current chat</button>
 </div></aside>
 <section class="panel chat">
-<div class="tabs"><button class="tab active" data-tab="chat">Chat</button><button class="tab" data-tab="memory">Memory</button><button class="tab" data-tab="pinned">📌 Pinned</button><button class="tab" data-tab="settings">Settings</button></div>
+<div class="tabs"><button class="tab active" data-tab="chat">Chat</button><button class="tab" data-tab="memory">Memory</button><button class="tab" data-tab="pinned">📌 Pinned</button><button class="tab" data-tab="library">🧰 Library</button><button class="tab" data-tab="settings">Settings</button></div>
 <div id="chatSection" class="section active">
-<div class="chathead"><strong id="modeLabel">NORMAL CHAT</strong><div class="pickers"><select id="modelPick" class="pick" title="Which AI model answers"><option value="auto">Auto (Sam picks)</option></select><select id="speedPick" class="pick" title="Speed vs depth"><option value="auto">⚡ Auto speed</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option></select></div><span id="aiState" class="muted">Checking AI…</span></div>
+<div class="chathead"><strong id="modeLabel">NORMAL CHAT</strong><div class="pickers"><select id="assistantPick" class="pick" title="Specialist assistant for this chat"><option value="sam">🤖 Sam</option></select><select id="modelPick" class="pick" title="Which AI model answers"><option value="auto">Auto (Sam picks)</option></select><select id="speedPick" class="pick" title="Speed vs depth"><option value="auto">⚡ Auto speed</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option></select></div><span id="aiState" class="muted">Checking AI…</span></div>
 <div id="messages" class="messages"><div class="msg sam"><span class="label">SAM</span>Hey, legend! I'm online. Ask me anything — and yes, my joke circuits are fully charged. ⚡</div></div>
 <div id="councilPick" class="council-pick hidden"></div><div id="editBanner" class="edit-banner hidden"><span>✏️ Editing your message — sending replaces it and everything after it.</span><button id="cancelEdit" class="secondary" style="padding:3px 9px">Cancel</button></div>
 <div class="compose"><input type="file" id="imageUpload" accept="image/*" hidden><div id="imagePreview" class="image-preview" hidden><img id="imagePreviewThumb" alt="Selected image"><button type="button" id="removeImage" title="Remove image">×</button></div><button id="attachImage" class="secondary" title="Attach an image">＋</button><input id="prompt" placeholder="Message Sam…" autocomplete="off"><button id="mic" class="secondary" title="Speak">🎙</button><button id="send" class="send">SEND ➜</button><button id="stop" class="stop hidden" title="Stop generating">■ Stop</button></div>
@@ -170,7 +206,33 @@ button:disabled{opacity:.55;cursor:not-allowed}
 </div>
 <div id="memorySection" class="section"><h3>Sam's memory bank 🧠</h3><p class="muted">Add notes you want Sam to use in future chats. You control and can delete these notes.</p><div class="row"><input id="memoryInput" class="field" placeholder="e.g. Explain things in simple steps"><button id="saveMemory" class="primary">Save</button></div><div id="memoryList"></div></div>
 <div id="pinnedSection" class="section"><h3>Pinned 📌</h3><p class="muted">Chats and messages you pin stay here — after refreshing, logging out, or on another device.</p><div id="pinnedList"></div></div>
-<div id="settingsSection" class="section"><h3>Sam control room ⚙</h3><p class="muted">Voice uses your browser's built-in speech features. Availability depends on your browser and device.</p><div class="row"><button id="voiceToggle" class="secondary">🔊 Voice replies: OFF</button><button id="speakTest" class="secondary">Test voice</button></div><p class="notice">Microphone input requires browser support and permission. Your microphone is only used when you press the microphone button.</p><hr style="border-color:#ffffff18;margin:20px 0"><h3>Account</h3><p class="muted">Signed in as <strong id="accountName"></strong>. Your chats and memories are stored in the app's SQLite database on its server.</p>
+<div id="librarySection" class="section">
+<h3>Specialist assistants</h3><p class="muted">Each chat can use a specialist. Pick one in the chat header, or start a chat with it here.</p>
+<div id="assistantList"></div>
+<details><summary class="muted" style="cursor:pointer">＋ Create your own assistant</summary><div class="lib-form"><div class="row"><input id="asIcon" class="field" style="flex:0 0 64px" maxlength="4" placeholder="⭐"><input id="asName" class="field" maxlength="40" placeholder="Name, e.g. Physics Pro"></div><textarea id="asInstr" class="field" maxlength="3000" placeholder="How should it behave? e.g. Explain physics with real-world examples and finish with a quick check question."></textarea><button id="asSave" class="primary" style="padding:10px">Save assistant</button><p id="asMsg" class="notice"></p></div></details>
+<h3>Prompt library</h3><p class="muted">Reusable prompts and templates. "Use" drops it into the message box; replace the [brackets] with your details.</p>
+<div id="promptList"></div>
+<details><summary class="muted" style="cursor:pointer">＋ Save a new prompt</summary><div class="lib-form"><input id="prTitle" class="field" maxlength="80" placeholder="Title"><textarea id="prBody" class="field" maxlength="4000" placeholder="Prompt text — use [brackets] for parts you'll fill in"></textarea><button id="prSave" class="primary" style="padding:10px">Save prompt</button><p id="prMsg" class="notice"></p></div></details>
+<h3>Model marketplace</h3><p class="muted">Every AI provider Sam supports. Connected ones are ready to use; to connect another, the site admin adds its API key on the server (keys are never entered in the browser).</p>
+<div id="modelMarket"></div>
+</div>
+<div id="settingsSection" class="section">
+<h3>Personalisation</h3>
+<div class="settings-grid">
+<div><label for="setPersonality">Sam's personality</label><select id="setPersonality" class="pick"></select></div>
+<div><label for="setStyle">Response style</label><select id="setStyle" class="pick"></select></div>
+<div><label for="setModel">Default AI model</label><select id="setModel" class="pick"></select></div>
+<div><label for="setSpeed">Default speed</label><select id="setSpeed" class="pick"><option value="auto">Auto</option><option value="fast">Fast</option><option value="balanced">Balanced</option><option value="deep">Deep</option></select></div>
+</div>
+<label class="check"><input type="checkbox" id="setSimple"> Explain things simply</label>
+<label class="check"><input type="checkbox" id="setAuto"> Auto-detect my task (switch to coding, search, research or tutor help automatically)</label>
+<label class="check"><input type="checkbox" id="setMemories"> Use my saved memories in chats</label>
+<label class="muted" for="setCustom" style="display:block;margin-top:8px">Custom instructions for Sam (e.g. "I'm in Year 10, use British spelling")</label>
+<textarea id="setCustom" class="field" maxlength="1500"></textarea>
+<h3>Appearance</h3>
+<div class="row" style="flex-wrap:wrap"><div style="flex:0 0 auto"><button id="themeDark" class="secondary">🌙 Dark</button> <button id="themeLight" class="secondary">☀️ Light</button></div><div class="swatches" id="swatches"></div></div>
+<div class="row" style="margin-top:12px"><button id="saveSettings" class="primary" style="padding:12px 16px;flex:0 0 auto">Save settings</button><span id="settingsMsg" class="notice" style="margin:0"></span></div>
+<hr style="border-color:#ffffff18;margin:20px 0"><h3>Sam control room ⚙</h3><p class="muted">Voice uses your browser's built-in speech features. Availability depends on your browser and device.</p><div class="row"><button id="voiceToggle" class="secondary">🔊 Voice replies: OFF</button><button id="speakTest" class="secondary">Test voice</button></div><p class="notice">Microphone input requires browser support and permission. Your microphone is only used when you press the microphone button.</p><hr style="border-color:#ffffff18;margin:20px 0"><h3>Account</h3><p class="muted">Signed in as <strong id="accountName"></strong>. Your chats and memories are stored in the app's SQLite database on its server.</p>
 <p class="muted" id="myUsage"></p>
 <h4>Change password</h4>
 <div class="row"><input id="pwCurrent" type="password" class="field" placeholder="Current password" autocomplete="current-password"><input id="pwNew" type="password" class="field" placeholder="New password (10+ characters)" autocomplete="new-password"><button id="pwChange" class="primary" style="padding:12px 16px">Update</button></div>
@@ -189,7 +251,7 @@ async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'C
 let registering=false;
 function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
 function showAuth(msg=''){setAuthMode(false);$('adminLink').classList.add('hidden');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
-function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent='Welcome, '+username;$('accountName').textContent=username;loadModels();loadHistory();api('/api/status').then(s=>$('adminLink').classList.toggle('hidden',!s.isAdmin)).catch(()=>{})}
+function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent='Welcome, '+username;$('accountName').textContent=username;loadSettings().then(loadModels);loadAssistants();loadHistory();api('/api/status').then(s=>$('adminLink').classList.toggle('hidden',!s.isAdmin)).catch(()=>{})}
 async function boot(){try{const s=await api('/api/status');if(s.loggedIn)showApp(s.username);else showAuth();$('aiState').textContent=s.aiConfigured?((s.providers||[]).length+' AI PROVIDER'+((s.providers||[]).length===1?'':'S')+' ONLINE'):'AI KEY NOT CONFIGURED';$('systemStatus').textContent=s.aiConfigured?'● AI ONLINE':'● SETUP REQUIRED'}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
 $('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
 $('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
@@ -244,8 +306,8 @@ async function loadModels(){
   try{
     const d=await api('/api/models');samModels=d.models.filter(m=>m.id!=='auto');renderCouncilPick();const sel=$('modelPick');sel.innerHTML='';
     d.models.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.label+(m.verified===false?' (unverified)':'');sel.append(o)});
-    const saved=getPick('model','auto');sel.value=[...sel.options].some(o=>o.value===saved)?saved:'auto';
-    $('speedPick').value=getPick('speed','auto');
+    const saved=getPick('model',samSettings.defaultModel||'auto');sel.value=[...sel.options].some(o=>o.value===saved)?saved:'auto';
+    $('speedPick').value=getPick('speed',samSettings.defaultSpeed||'auto');fillModelSelect($('setModel'),samSettings.defaultModel);
   }catch(e){}
 }
 $('modelPick').onchange=e=>savePick('model',e.target.value);
@@ -355,7 +417,7 @@ async function send(q){
   finally{setBusy(false)}
 }
 $('send').onclick=()=>send();$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter')send()});document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>send(b.dataset.q));
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===b.dataset.tab));['chat','memory','pinned','settings'].forEach(n=>$(n+'Section').classList.toggle('active',n===b.dataset.tab));if(b.dataset.tab==='memory')loadMemories();if(b.dataset.tab==='pinned')loadPins()});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===b.dataset.tab));['chat','memory','pinned','library','settings'].forEach(n=>$(n+'Section').classList.toggle('active',n===b.dataset.tab));if(b.dataset.tab==='memory')loadMemories();if(b.dataset.tab==='pinned')loadPins();if(b.dataset.tab==='library')loadLibrary();if(b.dataset.tab==='settings')loadSettings()});
 
 const modeNames = {
   chat: "Normal Chat",
@@ -513,13 +575,13 @@ async function openConversation(id) {
   $("messages").innerHTML = "";
   (d.messages || []).forEach(renderMessage);
   if (!(d.messages || []).length) addMsg("A fresh workspace. What shall we work on?", "sam");
-  refreshRegen();renderCouncilPick();
+  refreshRegen();renderCouncilPick();setAssistantPick(d.conversation?.assistant);
   document.querySelector('[data-tab="chat"]').click();
   await loadConversations();
 }
 
-async function createConversation(mode = "chat") {
-  const d = await api("/api/conversations", { method: "POST", body: JSON.stringify({ mode }) });
+async function createConversation(mode = "chat", assistant = null) {
+  const d = await api("/api/conversations", { method: "POST", body: JSON.stringify({ mode, assistant }) });
   const c = d.conversation || d;
   if (!c.id) throw Error("Sam did not return a new conversation ID.");
   currentConversationId = c.id;
@@ -528,7 +590,7 @@ async function createConversation(mode = "chat") {
   $("modeLabel").textContent = (modeNames[mode] || "Normal Chat").toUpperCase();
   $("messages").innerHTML = "";
   addMsg("A new " + (modeNames[mode] || "chat") + " workspace is ready.", "sam");
-  renderCouncilPick();
+  renderCouncilPick();setAssistantPick(c.assistant);
   document.querySelector('[data-tab="chat"]').click();
   await loadConversations();
 }
@@ -592,5 +654,59 @@ $('pwChange').onclick=async()=>{$('pwMsg').textContent='';try{await api('/api/ac
 $('exportData').onclick=()=>{window.location.href='/api/account/export'};
 $('deleteAccount').onclick=()=>{$('deleteBox').classList.toggle('hidden');$('deletePw').focus()};
 $('deleteConfirm').onclick=async()=>{$('deleteMsg').textContent='';if(!confirm('Really delete your Sam account and everything in it?'))return;try{await api('/api/account',{method:'DELETE',body:JSON.stringify({password:$('deletePw').value})});$('deletePw').value='';$('deleteBox').classList.add('hidden');showAuth('Your account has been deleted.')}catch(e){$('deleteMsg').textContent=e.message}};
+// ---- v3.3: settings, theme, assistants, prompt library, model marketplace ----
+let samSettings={},samOptions=null,samAssistants=[];
+const ACCENT_COLORS={silver:'#d7dbe2',blue:'#8fb4ff',purple:'#c3a2ff',green:'#7fdca5',orange:'#ffbb7a'};
+function applyAppearance(st){document.body.classList.toggle('light',st.theme==='light');document.body.dataset.accent=st.accent||'silver';
+  $('themeDark').classList.toggle('active',st.theme!=='light');$('themeLight').classList.toggle('active',st.theme==='light');
+  document.querySelectorAll('.swatch').forEach(x=>x.classList.toggle('on',x.dataset.accent===(st.accent||'silver')))}
+function fillModelSelect(sel,value){if(!sel||!samModels)return;sel.innerHTML='';[{id:'auto',label:'Auto (Sam picks)'},...samModels].forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.label;sel.append(o)});sel.value=[...sel.options].some(o=>o.value===value)?value:'auto'}
+async function loadSettings(){
+  try{const d=await api('/api/settings');samSettings=d.settings;samOptions=d.options;
+    const fill=(sel,items,val)=>{sel.innerHTML='';items.forEach(i=>{const o=document.createElement('option');o.value=i.id;o.textContent=i.label;sel.append(o)});sel.value=val};
+    fill($('setPersonality'),d.options.personalities,d.settings.personality);fill($('setStyle'),d.options.styles,d.settings.responseStyle);
+    fillModelSelect($('setModel'),d.settings.defaultModel);$('setSpeed').value=d.settings.defaultSpeed;
+    $('setSimple').checked=d.settings.explainSimply;$('setAuto').checked=d.settings.autoMode;$('setMemories').checked=d.settings.useMemories;$('setCustom').value=d.settings.customInstructions;
+    const sw=$('swatches');sw.innerHTML='';d.options.accents.forEach(a=>{const b=document.createElement('button');b.className='swatch';b.dataset.accent=a;b.title=a;b.style.background=ACCENT_COLORS[a];b.onclick=()=>{samSettings.accent=a;applyAppearance(samSettings)};sw.append(b)});
+    applyAppearance(samSettings);
+  }catch(e){}
+}
+$('themeDark').onclick=()=>{samSettings.theme='dark';applyAppearance(samSettings)};
+$('themeLight').onclick=()=>{samSettings.theme='light';applyAppearance(samSettings)};
+$('saveSettings').onclick=async()=>{$('settingsMsg').textContent='';
+  try{const d=await api('/api/settings',{method:'PUT',body:JSON.stringify({personality:$('setPersonality').value,responseStyle:$('setStyle').value,defaultModel:$('setModel').value,defaultSpeed:$('setSpeed').value,explainSimply:$('setSimple').checked,autoMode:$('setAuto').checked,useMemories:$('setMemories').checked,customInstructions:$('setCustom').value,theme:samSettings.theme,accent:samSettings.accent})});
+    samSettings=d.settings;applyAppearance(samSettings);
+    try{localStorage.removeItem('sam.model');localStorage.removeItem('sam.speed')}catch{}
+    $('modelPick').value=[...$('modelPick').options].some(o=>o.value===samSettings.defaultModel)?samSettings.defaultModel:'auto';$('speedPick').value=samSettings.defaultSpeed;
+    $('settingsMsg').textContent='✅ Saved — applies to every device you log in on.'}catch(e){$('settingsMsg').textContent=e.message}};
+
+function setAssistantPick(ref){const v=ref||'sam';const sel=$('assistantPick');if(![...sel.options].some(o=>o.value===v)){const o=document.createElement('option');o.value=v;o.textContent='⭐ (custom)';sel.append(o)}sel.value=v}
+async function loadAssistants(){
+  try{const d=await api('/api/assistants');samAssistants=d.assistants;const sel=$('assistantPick'),cur=sel.value||'sam';sel.innerHTML='';
+    samAssistants.forEach(a=>{const o=document.createElement('option');o.value=a.id;o.textContent=a.icon+' '+a.name;sel.append(o)});sel.value=[...sel.options].some(o=>o.value===cur)?cur:'sam';}catch(e){}
+}
+$('assistantPick').onchange=async e=>{if(!currentConversationId)return;try{await api('/api/conversations/'+currentConversationId,{method:'PATCH',body:JSON.stringify({assistant:e.target.value})});const a=samAssistants.find(x=>x.id===e.target.value);addMsg((a?a.icon+' **'+a.name+'**':'Sam')+' is now helping in this chat.','sam')}catch(err){alert(err.message)}};
+
+function card(title,desc,buttons){const c=document.createElement('div');c.className='lib-card';const h=document.createElement('h5');h.textContent=title;const d=document.createElement('div');d.className='d';d.textContent=desc;const row=document.createElement('div');row.className='msg-actions';buttons.forEach(([label,fn])=>{const b=document.createElement('button');b.textContent=label;b.onclick=async()=>{try{await fn()}catch(e){alert(e.message)}};row.append(b)});c.append(h,d,row);return c}
+async function loadLibrary(){
+  await loadAssistants();
+  const al=$('assistantList');al.innerHTML='';
+  samAssistants.forEach(a=>al.append(card(a.icon+' '+a.name+(a.custom?' (yours)':''),a.instructions||'The classic Sam — a mix of all personalities.',[
+    ['Start a chat',()=>createConversation('chat',a.id)],
+    ...(a.custom?[['Delete',async()=>{if(!confirm('Delete '+a.name+'?'))return;await api('/api/assistants/'+encodeURIComponent(a.id),{method:'DELETE'});loadLibrary()}]]:[])])));
+  const pl=$('promptList');pl.innerHTML='';
+  try{const d=await api('/api/prompts');d.prompts.forEach(p=>pl.append(card(p.title+(p.custom?' (yours)':''),p.body,[
+    ['Use',()=>{$('prompt').value=p.body;document.querySelector('.tab[data-tab="chat"]').click();$('prompt').focus()}],
+    ...(p.custom?[['Delete',async()=>{await api('/api/prompts/'+encodeURIComponent(p.id),{method:'DELETE'});loadLibrary()}]]:[])])))}catch(e){pl.textContent=e.message}
+  const mm=$('modelMarket');mm.innerHTML='';
+  try{const d=await api('/api/models/catalog');d.providers.forEach(p=>{
+    const c=document.createElement('div');c.className='lib-card';const h=document.createElement('h5');h.textContent=p.label;const badge=document.createElement('span');badge.className='badge '+(p.connected?'on':'off');badge.textContent=p.connected?'Connected':'Not connected';h.append(badge);
+    const d2=document.createElement('div');d2.className='d';d2.textContent=p.blurb+(p.connected?'':(d.isAdmin?` To connect: add ${p.envKey} to the server's environment (get a key at ${p.signup}) and restart Sam.`:' Ask the site admin to connect it.'));c.append(h,d2);
+    p.models.forEach(m=>{const r=document.createElement('div');r.className='model-row';const l=document.createElement('span');l.textContent=`${m.tier[0].toUpperCase()+m.tier.slice(1)} · ${m.model}`+(m.verified===true?' ✓':m.verified===false?' (not found)':'');r.append(l);
+      if(m.pick){const b=document.createElement('button');b.className='secondary';b.style.padding='4px 9px';b.textContent='Use';b.onclick=()=>{const sel=$('modelPick');if(![...sel.options].some(o=>o.value===m.pick)){const o=document.createElement('option');o.value=m.pick;o.textContent=p.label+' · '+m.model;sel.append(o)}sel.value=m.pick;savePick('model',m.pick);document.querySelector('.tab[data-tab="chat"]').click()};r.append(b)}c.append(r)});
+    mm.append(c)})}catch(e){mm.textContent=e.message}
+}
+$('asSave').onclick=async()=>{$('asMsg').textContent='';try{await api('/api/assistants',{method:'POST',body:JSON.stringify({name:$('asName').value,icon:$('asIcon').value,instructions:$('asInstr').value})});$('asName').value=$('asInstr').value=$('asIcon').value='';$('asMsg').textContent='✅ Saved.';loadLibrary()}catch(e){$('asMsg').textContent=e.message}};
+$('prSave').onclick=async()=>{$('prMsg').textContent='';try{await api('/api/prompts',{method:'POST',body:JSON.stringify({title:$('prTitle').value,body:$('prBody').value})});$('prTitle').value=$('prBody').value='';$('prMsg').textContent='✅ Saved.';loadLibrary()}catch(e){$('prMsg').textContent=e.message}};
 boot();
 </script></body></html>

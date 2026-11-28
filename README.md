@@ -2,7 +2,7 @@
 
 Sam is a self-hosted AI assistant platform with its own backend, database, accounts and AI connections. No Base44 credits, no third-party builder.
 
-## What works now (v3.2)
+## What works now (v3.3)
 - **Accounts:** register, log in and log out. Sessions last 30 days. Each user's chats and memories are private to them.
 - **Multi-model AI:** Gemini, Claude, OpenAI and DeepSeek. Add whichever keys you have.
   - Model picker, or **Auto**, which picks a model by task.
@@ -19,6 +19,11 @@ Sam is a self-hosted AI assistant platform with its own backend, database, accou
 - **Pinned tab** for pinned chats and messages. Pins survive refresh, log-out and switching devices.
 - **Sam Council:** choose up to 4 member models, and open "Show individual answers" to see what each one said.
 - **Tables** in replies, and a layout that works on phones.
+- **Settings Centre:** Sam's personality (5 styles), response length, "explain simply", custom instructions, default model and speed, memory on/off, automatic task detection on/off, **dark or light theme** and **5 accent colours**. Settings are saved on the server, so they follow you to every device.
+- **Specialist assistants:** Tutor, Coder, Researcher, Writer, Business coach and Creative partner, plus **your own custom assistants**. Choose one per chat.
+- **Prompt Library:** built-in templates plus your own saved prompts. "Use" drops one into the message box.
+- **Model Marketplace:** every provider Sam supports, whether it's connected, its models and their status, with a "Use" button.
+- **Automatic task recognition:** in a normal chat, Sam spots coding, research, news or homework questions and switches to the right mode or the Tutor for that message. It shows "auto: …" on the reply, and you can turn it off in Settings.
 - **Memories:** notes you write that Sam uses in every chat. You can view and delete them.
 - **Voice:** speech input and spoken replies, using the browser's built-in speech features.
 - **Usage log:** every AI call is recorded. Users can see their own usage in Settings. Streamed token counts are estimates.

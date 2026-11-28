@@ -130,6 +130,32 @@ function check(name, ok, detail = "") {
     check(`Sam Council with chosen members (${models.join(", ")})`, cdone.meta?.council?.length >= 1 && cdone.meta.council.every(m => models.includes(m.provider + ":" + m.model)), JSON.stringify(cdone).slice(0, 300));
   }
 
+  console.log("\nPersonalisation (v3.3)");
+  const st0 = await A("GET", "/api/settings");
+  check("settings load with defaults", st0.status === 200 && st0.data.settings?.personality === "sam", st0.text);
+  const st1 = await A("PUT", "/api/settings", { personality: "professional", theme: "light", accent: "blue", customInstructions: "Use British spelling" });
+  check("settings save", st1.status === 200 && st1.data.settings.theme === "light", st1.text);
+  check("invalid settings rejected", (await A("PUT", "/api/settings", { theme: "neon" })).status === 400);
+  check("settings are per-user", (await B("GET", "/api/settings")).data.settings?.theme === "dark");
+  const asA = await A("POST", "/api/assistants", { name: "Smoke Tutor", icon: "🧪", instructions: "Explain like a chemistry teacher." });
+  check("create a custom assistant", asA.status === 200 && /^custom:\d+$/.test(asA.data.assistant?.id), asA.text);
+  check("B doesn't see A's assistants", !(await B("GET", "/api/assistants")).data.assistants.some(x => x.id === asA.data.assistant.id));
+  const bConv = await B("POST", "/api/conversations", { mode: "chat" });
+  check("B can't use A's assistant", (await B("PATCH", "/api/conversations/" + bConv.data.id, { assistant: asA.data.assistant.id })).status === 400);
+  check("A can put their assistant on a chat", (await A("PATCH", "/api/conversations/" + ca.data.id, { assistant: asA.data.assistant.id })).data.conversation?.assistant === asA.data.assistant.id);
+  const prA = await A("POST", "/api/prompts", { title: "Smoke prompt", body: "Test [x]" });
+  check("save a prompt", prA.status === 200, prA.text);
+  check("B doesn't see A's prompts", !(await B("GET", "/api/prompts")).data.prompts.some(x => x.id === prA.data.prompt.id));
+  const cat = await A("GET", "/api/models/catalog");
+  check("model marketplace lists all providers", cat.status === 200 && cat.data.providers?.length === 4, cat.text);
+  check("model marketplace never exposes API keys", !/sk-|AIza/.test(cat.text));
+  if (aiOn) {
+    const autoConv = await A("POST", "/api/conversations", { mode: "chat" });
+    const ev = (await A("POST", "/api/chat", { message: "Why does my python code throw a TypeError? One line.", conversationId: autoConv.data.id, speed: "fast" })).text;
+    check("auto task recognition kicks in (coding)", ev.includes('"auto":"Coding Assistant"'), ev.slice(0, 300));
+  }
+  await A("PUT", "/api/settings", { theme: "dark", accent: "silver", personality: "sam", customInstructions: "" });
+
   console.log("\nYour account");
   const exp = await A("GET", "/api/account/export");
   check("export contains A's own chat and memory", exp.status === 200 && exp.data.conversations?.some(c => c.id === ca.data.id) && exp.text.includes("A's private note " + id), exp.text.slice(0, 200));
