@@ -630,7 +630,7 @@ async function saveProviderTests(run) {
 }
 function summariseTests(run) {
   return Object.entries(run.results).map(([n, r]) => r.key === "missing" ? `${n}: no key`
-    : `${n}: ` + r.models.filter(m => !m.sameAs).map(m => (m.ok ? `✓ ${m.model} (${m.ms}ms)` : `✗ ${m.model} — ${m.label}${m.status ? " " + m.status : ""}`) + (m.switchedFrom ? ` [${m.tier}: switched from ${m.switchedFrom} — ${m.switchReason}]` : "")).join(", ")).join(" | ");
+    : `${n}: ` + r.models.filter(m => !m.sameAs).map(m => (m.ok ? `✓ ${m.model} (${m.ms}ms)` : `✗ ${m.model} — ${m.label}${m.status ? " " + m.status : ""}`) + (m.switchedFrom ? ` [${m.tier}: switched from ${m.switchedFrom} — ${m.switchReason}]` : "") + (m.tried?.length ? ` (also tried: ${m.tried.join("; ")})` : "")).join(", ")).join(" | ");
 }
 
 function record(userId, mode, result, ok = true) {
