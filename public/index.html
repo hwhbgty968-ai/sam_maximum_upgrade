@@ -490,9 +490,9 @@ function getPick(id,fallback){try{return localStorage.getItem('sam.'+id)||fallba
 function savePick(id,v){try{localStorage.setItem('sam.'+id,v)}catch{}}
 async function loadModels(){
   try{
-    const d=await api('/api/models');samModels=d.models.filter(m=>m.id!=='auto');renderCouncilPick();const sel=$('modelPick');sel.innerHTML='';
-    d.models.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.label+(m.verified===false?' (unverified)':'');sel.append(o)});
-    const saved=getPick('model',samSettings.defaultModel||'auto');sel.value=[...sel.options].some(o=>o.value===saved)?saved:'auto';
+    const d=await api('/api/models');samModels=d.models.filter(m=>m.id!=='auto'&&m.available!==false);renderCouncilPick();const sel=$('modelPick');sel.innerHTML='';
+    d.models.forEach(m=>{const o=document.createElement('option');o.value=m.id;o.textContent=m.label+(m.available===false?' — unavailable ('+(m.unavailableReason||'not working')+')':m.verified===false?' (unverified)':'');o.disabled=m.available===false;sel.append(o)});
+    const saved=getPick('model',samSettings.defaultModel||'auto');sel.value=[...sel.options].some(o=>o.value===saved&&!o.disabled)?saved:'auto';
     $('speedPick').value=getPick('speed',samSettings.defaultSpeed||'auto');updateAutoLabel();fillModelSelect($('setModel'),samSettings.defaultModel);
   }catch(e){}
 }
@@ -872,7 +872,7 @@ $('saveSettings').onclick=async()=>{$('settingsMsg').textContent='';
   try{const d=await api('/api/settings',{method:'PUT',body:JSON.stringify({personality:$('setPersonality').value,responseStyle:$('setStyle').value,defaultModel:$('setModel').value,defaultSpeed:$('setSpeed').value,explainSimply:$('setSimple').checked,autoMode:$('setAuto').checked,useMemories:$('setMemories').checked,customInstructions:$('setCustom').value,theme:samSettings.theme,accent:samSettings.accent})});
     samSettings=d.settings;applyAppearance(samSettings);
     try{localStorage.removeItem('sam.model');localStorage.removeItem('sam.speed')}catch{}
-    $('modelPick').value=[...$('modelPick').options].some(o=>o.value===samSettings.defaultModel)?samSettings.defaultModel:'auto';$('speedPick').value=samSettings.defaultSpeed;
+    $('modelPick').value=[...$('modelPick').options].some(o=>o.value===samSettings.defaultModel&&!o.disabled)?samSettings.defaultModel:'auto';$('speedPick').value=samSettings.defaultSpeed;
     $('settingsMsg').textContent='✅ Saved — applies to every device you log in on.'}catch(e){$('settingsMsg').textContent=e.message}};
 
 function setAssistantPick(ref){const v=ref||'sam';const sel=$('assistantPick');if(![...sel.options].some(o=>o.value===v)){const o=document.createElement('option');o.value=v;o.textContent='⭐ (custom)';sel.append(o)}sel.value=v}
@@ -895,8 +895,8 @@ async function loadLibrary(){
     ...(p.custom?[['Delete',async()=>{await api('/api/prompts/'+encodeURIComponent(p.id),{method:'DELETE'});loadLibrary()}]]:[])])))}catch(e){pl.textContent=e.message}
   const mm=$('modelMarket');mm.innerHTML='';
   try{const d=await api('/api/models/catalog');d.providers.forEach(p=>{
-    const c=document.createElement('div');c.className='lib-card';const h=document.createElement('h5');h.textContent=p.label;const badge=document.createElement('span');badge.className='badge '+(p.connected?'on':'off');badge.textContent=p.connected?'Connected':'Not connected';h.append(badge);
-    const d2=document.createElement('div');d2.className='d';d2.textContent=p.blurb+(p.connected?'':(d.isAdmin?` To connect: add ${p.envKey} to the server's environment (get a key at ${p.signup}) and restart Sam.`:' Ask the site admin to connect it.'));c.append(h,d2);
+    const c=document.createElement('div');c.className='lib-card';const h=document.createElement('h5');h.textContent=p.label;const badge=document.createElement('span');const broken=p.connected&&p.keyStatus==='invalid';badge.className='badge '+(p.connected&&!broken?'on':'off');badge.textContent=broken?'Key not working':p.connected?'Connected':'Not connected';h.append(badge);
+    const d2=document.createElement('div');d2.className='d';d2.textContent=p.blurb+(broken?(d.isAdmin?` Its API key was rejected, so Sam isn't using it. Fix ${p.envKey} in the server's environment, or remove it.`:' Temporarily unavailable.'):p.connected?'':(d.isAdmin?` To connect: add ${p.envKey} to the server's environment (get a key at ${p.signup}) and restart Sam.`:' Ask the site admin to connect it.'));c.append(h,d2);
     p.models.forEach(m=>{const r=document.createElement('div');r.className='model-row';const l=document.createElement('span');l.textContent=`${m.tier[0].toUpperCase()+m.tier.slice(1)} · ${m.model}`+(m.verified===true?' ✓':m.verified===false?' (not found)':'');r.append(l);
       if(m.pick){const b=document.createElement('button');b.className='secondary';b.style.padding='4px 9px';b.textContent='Use';b.onclick=()=>{const sel=$('modelPick');if(![...sel.options].some(o=>o.value===m.pick)){const o=document.createElement('option');o.value=m.pick;o.textContent=p.label+' · '+m.model;sel.append(o)}sel.value=m.pick;savePick('model',m.pick);showSection('chat')};r.append(b)}c.append(r)});
     mm.append(c)})}catch(e){mm.textContent=e.message}

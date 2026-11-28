@@ -69,8 +69,10 @@ pre{white-space:pre-wrap;font-size:11px;color:#b8bcc6;margin:6px 0 0;max-height:
     </section>
 
     <section id="s-providers" class="section">
-      <div class="bar"><button id="recheck">Re-check models now</button><span class="muted" id="recheckMsg"></span></div>
+      <div class="bar"><button id="testProviders">Test all providers now</button><button id="recheck">Re-check model lists</button><span class="muted" id="recheckMsg"></span></div>
+      <p class="muted">"Test" sends a tiny message to every model (a few tokens each) and shows whether it really answers. Sam also tests automatically at most every 6 hours. Models that fail for a lasting reason (no quota, model missing, bad key) are skipped until the next test.</p>
       <div class="panel"><table id="provTable"></table></div>
+      <div id="provNotes" class="muted" style="margin-top:10px"></div>
     </section>
 
     <section id="s-errors" class="section">
@@ -131,7 +133,7 @@ async function loadOverview() {
     card("AI requests today", n(o.usageToday.requests), `${n(o.usageToday.input_tokens + o.usageToday.output_tokens)} tokens · ${n(o.usageToday.failures)} failed`),
     card("AI requests (30 days)", n(o.usage30d.requests), `${n(o.usage30d.input_tokens + o.usage30d.output_tokens)} tokens`),
     card("Errors (24h)", el("span", { class: o.errors24h ? "warn" : "ok" }, n(o.errors24h))),
-    card("AI providers", n(provs.length), provs.map(p => p.label).join(", ") || "None configured!")
+    card("AI providers", `${provs.filter(p => p.key !== "invalid").length} of ${provs.length} working`, provs.map(p => p.label + (p.key === "invalid" ? " (key rejected)" : "")).join(", ") || "None configured!")
   );
   $("sysline").textContent = `Database: ${o.database?.engine === "postgres" ? "Postgres (permanent)" : "SQLite file"}, ${bytes(o.dbSizeBytes)} · up ${Math.floor(o.uptimeSeconds / 3600)}h ${Math.floor(o.uptimeSeconds % 3600 / 60)}m · Node ${o.node} · Admins: ${o.admins.join(", ")}`;
   renderProviders(o.providers);
@@ -181,18 +183,44 @@ async function loadUsage() {
   ]));
 }
 
-function renderProviders(p) {
-  const rows = [];
+const ago = t => { if (!t) return ""; const s = Math.round((Date.now() - (typeof t === "number" ? t : Date.parse(t))) / 1000); return s < 90 ? s + "s ago" : s < 5400 ? Math.round(s / 60) + " min ago" : Math.round(s / 3600) + " h ago"; };
+function keyCell(k, err) {
+  if (k === "ok") return el("span", { class: "ok" }, "✓ working");
+  if (k === "invalid") return el("span", { class: "bad", title: err || "" }, "✗ rejected");
+  if (k === "missing") return el("span", { class: "muted" }, "no key");
+  return el("span", { class: "warn" }, "not checked yet");
+}
+function renderProviders(p, missing = [], lastTest = null) {
+  const rows = [], notes = [];
   for (const [name, s] of Object.entries(p)) {
     for (const tier of ["fast", "balanced", "deep"]) {
-      const v = s.verified?.[tier];
-      rows.push([s.label, tier, s.models[tier],
-        v === true ? el("span", { class: "ok" }, "✓ found") : v === false ? el("span", { class: "bad" }, "✗ not found") : el("span", { class: "warn" }, s.reachable === false ? "couldn't list models" : "not checked"),
-        s.replaced?.[tier] ? `replaced "${s.replaced[tier]}"` : "",
-        s.error ? el("span", { class: "bad" }, s.error) : ""]);
+      const model = s.models[tier], v = s.verified?.[tier];
+      const test = s.tests?.models?.find(m => m.tier === tier);
+      const cool = s.cooling?.[model];
+      rows.push([s.label, keyCell(s.key, s.keyError), tier, model,
+        v === true ? el("span", { class: "ok" }, "✓ listed") : v === false ? el("span", { class: "bad" }, "✗ not listed") : el("span", { class: "warn", title: s.error || "" }, s.reachable === false ? "couldn't list" : "not checked"),
+        !test ? el("span", { class: "muted" }, "not tested") : test.sameAs ? el("span", { class: "muted" }, "same model as above")
+          : test.skipped ? el("span", { class: "muted" }, "skipped (key rejected)")
+          : test.ok ? el("span", { class: "ok" }, `✓ answered (${test.ms} ms)`) : el("span", { class: "bad", title: test.message || "" }, `✗ ${test.label}${test.status ? " (" + test.status + ")" : ""}`),
+        s.key === "invalid" ? el("span", { class: "bad" }, "not used (bad key)")
+          : cool ? el("span", { class: "warn", title: cool.message || "" }, cool.untilTest ? `skipped until next test (${cool.label.toLowerCase()})` : `avoiding for ${cool.secondsLeft}s (${cool.label.toLowerCase()})`)
+          : el("span", { class: "ok" }, "in use"),
+        s.replaced?.[tier] ? `replaced "${s.replaced[tier]}"` : ""]);
     }
+    const counts = Object.entries(s.failures || {}).map(([k, n]) => `${n}× ${k.replace(/_/g, " ")}`).join(", ");
+    if (counts || s.lastError) notes.push(`${s.label}: failures since restart: ${counts || "none"}` + (s.lastError ? ` · last: ${s.lastError.model}, ${s.lastError.kind.replace(/_/g, " ")}${s.lastError.status ? " " + s.lastError.status : ""} ${ago(s.lastError.at)} — "${s.lastError.message}"` : ""));
+    if (s.error && s.key !== "invalid") notes.push(`${s.label}: couldn't read the provider's model list ("${s.error}"). Sam still uses the models above.`);
+    if (s.key === "invalid") notes.push(`${s.label}: the API key was rejected${s.keyError ? ` ("${s.keyError}")` : ""}. Fix or remove it in the server's environment; until then Sam routes around ${s.label}.`);
   }
-  table("provTable", ["Provider", "Tier", "Model", "Status", "Note", "Error"], rows);
+  for (const m of missing) rows.push([m.label, keyCell("missing"), "—", "—", "—", "—", el("span", { class: "muted" }, `add ${m.envKey} to connect`), ""]);
+  table("provTable", ["Provider", "API key", "Tier", "Model", "Provider's model list", "Last live test", "Right now", "Note"], rows);
+  const box = $("provNotes"); box.innerHTML = "";
+  if (lastTest) box.append(el("div", {}, `Last live test: ${new Date(lastTest).toLocaleString()} (${ago(lastTest)}).`));
+  notes.forEach(n => box.append(el("div", {}, n)));
+}
+async function loadProviders() {
+  const d = await api("/api/admin/providers");
+  renderProviders(d.providers, d.missing, d.lastTest);
 }
 
 async function loadErrors() {
@@ -210,7 +238,7 @@ async function loadBackups() {
   table("backupTable", ["File", "Size"], d.backups.map(b => [b.file, bytes(b.bytes)]));
 }
 
-const loaders = { overview: loadOverview, users: loadUsers, usage: loadUsage, providers: loadOverview, errors: loadErrors, backups: loadBackups };
+const loaders = { overview: loadOverview, users: loadUsers, usage: loadUsage, providers: loadProviders, errors: loadErrors, backups: loadBackups };
 document.querySelectorAll("nav .tab").forEach(b => b.onclick = () => {
   document.querySelectorAll("nav .tab").forEach(x => x.classList.toggle("active", x === b));
   document.querySelectorAll(".section").forEach(s => s.classList.toggle("active", s.id === "s-" + b.dataset.s));
@@ -222,8 +250,17 @@ $("usageDays").onchange = () => loadUsage().catch(e => alert(e.message));
 $("reloadErrors").onclick = () => loadErrors().catch(e => alert(e.message));
 $("recheck").onclick = async () => {
   $("recheck").disabled = true; $("recheckMsg").textContent = "Checking each provider…";
-  try { const d = await api("/api/admin/providers/recheck", { method: "POST" }); renderProviders(d.providers); $("recheckMsg").textContent = "Done."; }
+  try { await api("/api/admin/providers/recheck", { method: "POST" }); await loadProviders(); $("recheckMsg").textContent = "Model lists re-checked."; }
   catch (e) { $("recheckMsg").textContent = e.message; } finally { $("recheck").disabled = false; }
+};
+$("testProviders").onclick = async () => {
+  $("testProviders").disabled = true; $("recheckMsg").textContent = "Testing every model… (up to a minute)";
+  try {
+    const d = await api("/api/admin/providers/test", { method: "POST" });
+    const all = Object.values(d.test.results).flatMap(r => r.models || []).filter(m => !m.sameAs);
+    $("recheckMsg").textContent = `${all.filter(m => m.ok).length} of ${all.length} models answered.`;
+    renderProviders(d.providers, d.missing, d.test.at);
+  } catch (e) { $("recheckMsg").textContent = e.message; } finally { $("testProviders").disabled = false; }
 };
 $("backupNow").onclick = async () => {
   $("backupNow").disabled = true; $("backupMsg").textContent = "Backing up…";

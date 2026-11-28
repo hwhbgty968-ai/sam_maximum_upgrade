@@ -133,6 +133,8 @@ These are extra requirements on top of everything below. The **Stage** column gi
 - 🔨 Next: a file store (Cloudflare R2, free 10 GB) for the File Library and automatic off-site backup copies, and a job system for background tasks. These come with their first users in Stage 4.
 - 🧱 Scaling to many servers needs shared file storage too. One server is fine for hundreds of users.
 
+- ✅ v4.1 **AI provider diagnostics and routing:** errors are sorted into plain categories (bad key, model missing, no quota, rate limit, overloaded, network); Sam falls back to the same speed on other providers, then other speeds; providers with a rejected key are skipped; overloaded models cool down briefly; models with no quota or that don't exist are skipped until the next test. Live tests (admin button + startup, max every 6 h), per-model status in the admin dashboard, unavailable models greyed out in the picker, failed attempts logged as failed usage.
+
 ### 15. Security and administration
 - ✅ v4.0 Admin roles stored in the database; the first admin is set with a one-time setup code from the server log, then admins promote or demote others. (`ADMIN_USERNAMES` is retired.)
 - ✅ User management, disabling accounts, usage and cost view, provider health, error log with ref codes, backups from the admin panel, password change and reset links, data export, account deletion, CSRF protection, rate limits that only count failed logins
@@ -151,6 +153,7 @@ These are extra requirements on top of everything below. The **Stage** column gi
 |---|---|---|
 | **1–3. Foundation, redesign, AI core** | Accounts, security, multi-model AI, Council, memory, assistants, admin, Base44 design | ✅ Done (v3.4) |
 | **4.0 Permanent foundation** | Postgres on Neon, backups and restore, admin setup code | ✅ Done (v4.0). File store and job system arrive with their first users in Stage 4 |
+| **4.1 AI provider diagnostics (master-plan Stage 3)** | Error categories, smarter fallback, live tests, admin diagnostics, honest error messages | ✅ Done (v4.1) |
 | **4. Research and learning** | Knowledge Base and files, Study Centre, Research Centre with a real search API, Universal Search | Next |
 | **5. Creative and productivity** | Documents and slides, images, voice, tasks and reminders; video is optional | Later |
 | **6. Coding and App Builder** | Coding Assistant, App Builder v1 with live preview; v2 in containers | Later |

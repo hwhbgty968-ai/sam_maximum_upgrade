@@ -2,7 +2,9 @@
 
 Sam is a self-hosted AI assistant platform with its own backend, database, accounts and AI connections. No Base44 credits, no third-party builder.
 
-## What works now (v4.0)
+## What works now (v4.1)
+- **Honest, self-healing AI routing (v4.1):** when a model fails, Sam first tries the same speed on the other providers, then the other speeds, and skips any provider whose API key was rejected. Errors say what really happened ("Gemini is overloaded, try again in a minute", "the admin needs to fix the OpenAI key") with a ref code; admins also see which provider and model failed and why. API keys never appear in messages or logs.
+- **Provider diagnostics (v4.1):** admin dashboard → AI providers shows, per model, whether the key works, whether the provider lists it, the last live test and whether Sam is using it right now. **Test all providers now** sends a tiny message to every model. Sam also tests at startup (at most every 6 hours). Models that don't work are greyed out in the model picker with the reason.
 - **Permanent database:** set `DATABASE_URL` to a Postgres database (Neon's free plan works) and every account, chat, memory and setting survives restarts and redeploys, including on Render's free plan. Without it, Sam uses a local SQLite file as before, which suits running it on your own computer. The same code runs on both.
 - **First admin via a one-time setup code** printed in the server log. There's no more `ADMIN_USERNAMES` race where whoever registered a listed name first became admin. Admins can then promote or demote others from the dashboard.
 - **Full backups as one JSON file** (admin dashboard → Backups, or `npm run backup`), and `npm run restore` to load one into an empty database. The same pair moves Sam from SQLite to Postgres.
@@ -12,7 +14,7 @@ Sam is a self-hosted AI assistant platform with its own backend, database, accou
 - **Multi-model AI:** Gemini, Claude, OpenAI and DeepSeek. Add whichever keys you have.
   - Model picker, or **Auto**, which picks a model by task.
   - **Fast / Balanced / Deep** speed modes.
-  - If one provider fails, Sam tries the next one automatically.
+  - If a model fails, Sam tries the same speed on other providers, then other speeds, and tells you if it had to switch.
   - At startup Sam checks each provider's real model list and replaces any model name that doesn't exist.
 - **Streaming replies** with a **Stop** button. A stopped reply is saved up to the point you stopped it.
 - **Sam Council:** asks several models, then combines their answers into one.
@@ -78,6 +80,7 @@ Log in to Sam, open **Settings → Become admin**, and enter the code. On Render
 | `<PROVIDER>_MODEL_<FAST\|BALANCED\|DEEP>` | no | Overrides the model for a tier, e.g. `GEMINI_MODEL_DEEP` |
 | `MAX_TOKENS` | no | Reply budget for Balanced (default 4000). Fast gets half, Deep gets double |
 | `COUNCIL_CHAIR_SPEED` | no | Tier used to combine council answers (default `balanced`) |
+| `PROVIDER_STARTUP_TEST` | no | `0` turns off the automatic startup test of every model (default on, at most once every 6 hours, a few tokens per model) |
 | `DATABASE_URL` | recommended on hosting | Postgres connection string (e.g. from Neon). When set, Sam stores everything there permanently. When empty, Sam uses `sam.sqlite` in `DATA_DIR` |
 | `PG_POOL_MAX` | no | Max database connections (default 5) |
 | `ADMIN_SETUP_CODE` | no | Your own one-time code for becoming the first admin (otherwise one is generated and logged) |
