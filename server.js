@@ -11,6 +11,8 @@ const crypto = require("crypto");
 const { db, engine, init: initDatabase, getSessionSecret, findUserByUsername, usernameTaken, logUsage } = require("./lib/db");
 const guests = require("./lib/guests");
 const credits = require("./lib/credits");
+const roles = require("./lib/roles");
+const mailer = require("./lib/mailer");
 const { DbSessionStore } = require("./lib/session-store");
 const backup = require("./lib/backup");
 const ai = require("./lib/ai");
@@ -107,7 +109,7 @@ const upload = multer({
 const requireAuth = wrap(async (req, res, next) => {
   const id = req.session.userId;
   if (!id) return res.status(401).json({ error: "Please log in first.", code: "AUTH_REQUIRED" });
-  const user = await db.get("SELECT id, username, age, role, disabled, password_changed_at FROM users WHERE id=?", id);
+  const user = await db.get("SELECT id, username, age, role, disabled, password_changed_at, email, creator_handle FROM users WHERE id=?", id);
   const stale = user && (user.password_changed_at || null) !== (req.session.pwAt || null);
   if (!user || user.disabled || stale) {
     const code = !user ? "AUTH_REQUIRED" : user.disabled ? "ACCOUNT_DISABLED" : "PASSWORD_CHANGED";
@@ -119,6 +121,7 @@ const requireAuth = wrap(async (req, res, next) => {
   next();
 });
 const requireAdmin = (req, res, next) => admin.isAdmin(req.user) ? next() : res.status(403).json({ error: "Admins only." });
+const requireOwner = (req, res, next) => roles.isOwner(req.user) ? next() : res.status(403).json({ error: "Only the Creator can do this." });
 
 function startSession(req, user) {
   return new Promise((resolve, reject) => {
@@ -149,6 +152,8 @@ app.get("/api/status", wrap(async (req, res) => {
     guestMode: guests.enabled(),
     guest: guestId ? { active: true, hasChat: guests.messages(guestId).length > 0, ...(await guests.remaining(guestId, req.ip)) } : null,
     isAdmin: admin.isAdmin(user),
+    isOwner: roles.isOwner(user),
+    role: user ? user.role || "user" : (req.session.guestId ? "guest" : null),
     adminSetupOpen: !!user && admin.status().setupOpen,
     username: user ? req.session.username : null,
     age: user?.age ?? null,
@@ -174,16 +179,23 @@ app.post("/api/register", registerLimiter, authLimiter, async (req, res, next) =
     if (!Number.isInteger(age) || age < 1 || age > 120) return res.status(400).json({ error: "Please enter a valid age." });
     if (age < MIN_AGE) return res.status(400).json({ error: `Ezer is for ages ${MIN_AGE} and up.`, code: "TOO_YOUNG" });
     if (password.length < 10) return res.status(400).json({ error: "Use a password with at least 10 characters." });
-    if (await usernameTaken(username)) return res.status(409).json({ error: "That username is already taken." });
+    const taken = async () => res.status(409).json({ error: `"${username}" is already taken. Try one of these, or another name.`, code: "USERNAME_TAKEN", suggestions: await roles.suggestions(username, { kind: "username" }) });
+    if ((await roles.takenSet([username])).size) return taken();
 
     const hash = await bcrypt.hash(password, 12);
-    const id = await db.insert("INSERT INTO users(username,password_hash,age,last_login_at) VALUES(?,?,?,datetime('now'))", username, hash, age);
+    // Check + insert inside one lock, so "Alex" and "alex" signing up at the same moment can't both succeed.
+    const id = await db.tx(async t => {
+      await roles.nameLock(t);
+      if ((await roles.takenSet([username], 0, t)).size) return null;
+      return t.insert("INSERT INTO users(username,password_hash,age,last_login_at) VALUES(?,?,?,datetime('now'))", username, hash, age);
+    });
+    if (!id) return taken();
     const guestChatId = await takeGuestChat(req, id);
     await startSession(req, { id, username, password_changed_at: null });
     res.json({ ok: true, username, age, guestChatId });
   } catch (e) {
     // Two sign-ups racing for the same name: SQLite and Postgres report it differently.
-    if (String(e.code).startsWith("SQLITE_CONSTRAINT") || e.code === "23505" || /UNIQUE constraint/i.test(e.message)) return res.status(409).json({ error: "That username is already taken." });
+    if (String(e.code).startsWith("SQLITE_CONSTRAINT") || e.code === "23505" || /UNIQUE constraint/i.test(e.message)) return res.status(409).json({ error: "That username is already taken.", code: "USERNAME_TAKEN", suggestions: await roles.suggestions(String(req.body.username || ""), { kind: "username" }).catch(() => []) });
     next(e);
   }
 });
@@ -361,6 +373,55 @@ app.delete("/api/history", requireAuth, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Route helper: errors with a 4xx status become a JSON message for the user.
+const api = fn => wrap(async (req, res, next) => {
+  try { await fn(req, res, next); }
+  catch (e) { if (e.status && e.status < 500) return res.status(e.status).json({ error: e.message }); throw e; }
+});
+
+// ---------------- Names ----------------
+// Anyone can check a sign-up name (rate-limited); taken names come back with checked suggestions.
+app.get("/api/username/check", authLimiter, wrap(async (req, res) => res.json(await roles.checkName(req.query.name, { kind: "username" }))));
+
+// ---------------- Creator area (owner only) ----------------
+app.get("/api/creator", requireAuth, requireOwner, wrap(async (req, res) => res.json(await roles.creatorOverview(req.user))));
+app.get("/api/creator/handle/check", requireAuth, requireOwner, wrap(async (req, res) => res.json(await roles.checkName(req.query.name, { kind: "handle", exceptUserId: req.user.id }))));
+app.put("/api/creator/handle", requireAuth, requireOwner, api(async (req, res) => {
+  try { res.json({ ok: true, handle: await roles.claimHandle(req.user, req.body?.handle) }); }
+  catch (e) { if (e.status && e.status < 500) return res.status(e.status).json({ error: e.message, code: e.code, suggestions: e.suggestions || [] }); throw e; }
+}));
+const inviteBase = req => process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get("host")}`;
+app.post("/api/creator/invites", requireAuth, requireOwner, authLimiter, api(async (req, res) => {
+  try { res.json({ ok: true, invite: await roles.createInvite(req.user, req.body?.email, inviteBase(req)) }); }
+  catch (e) { if (e.cause) logError({ requestId: req.id, userId: req.user.id, route: "invite email", error: e.cause }); if (e.status && e.status < 600) return res.status(e.status).json({ error: e.message, code: e.code }); throw e; }
+}));
+app.post("/api/creator/invites/:id/revoke", requireAuth, requireOwner, api(async (req, res) => {
+  const id = idOf(req.params.id);
+  if (!id) return res.status(404).json({ error: "Invitation not found." });
+  await roles.revokeInvite(req.user, id);
+  res.json({ ok: true });
+}));
+app.post("/api/creator/admins/:id/remove", requireAuth, requireOwner, api(async (req, res) => {
+  const id = idOf(req.params.id);
+  if (!id) return res.status(404).json({ error: "User not found." });
+  res.json({ ok: true, changed: await roles.removeAdmin(req.user, id) });
+}));
+app.post("/api/creator/mail/test", requireAuth, requireOwner, authLimiter, api(async (req, res) => {
+  const to = String(req.body?.email || req.user.email || "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return res.status(400).json({ error: "Enter the email address to send the test to." });
+  try { await mailer.send({ to, subject: "Ezer test email", text: "This is a test from Ezer. Email sending works, so admin invitations can be delivered." }); }
+  catch (e) { if (e.cause) logError({ requestId: req.id, userId: req.user.id, route: "test email", error: e.cause }); return res.status(e.status || 502).json({ error: e.message, code: e.code }); }
+  await roles.audit(null, { actorId: req.user.id, action: "mail_test", detail: { to } });
+  res.json({ ok: true });
+}));
+
+// ---------------- Admin invitations (the invitee's side) ----------------
+app.get("/api/invites/lookup", authLimiter, api(async (req, res) => res.json(await roles.lookupInvite(req.query.token))));
+app.post("/api/invites/accept", requireAuth, authLimiter, api(async (req, res) => {
+  try { res.json(await roles.acceptInvite(req.user, req.body?.token, req.body?.email)); }
+  catch (e) { if (e.status && e.status < 500) return res.status(e.status).json({ error: e.message, code: e.code }); throw e; }
+}));
+
 // ---------------- Plan & credits ----------------
 app.get("/api/credits", requireAuth, wrap(async (req, res) => {
   res.json({ ...(await credits.summary(req.user.id)), history: await credits.history(req.user.id, req.query.limit) });
@@ -378,10 +439,6 @@ app.get("/api/usage", requireAuth, wrap(async (req, res) => {
 
 // ---------------- Personalisation: settings, assistants, prompts, model marketplace ----------------
 // Errors with a status (validation, not found…) go back to the user; anything else is a real server error.
-const api = fn => wrap(async (req, res, next) => {
-  try { await fn(req, res, next); }
-  catch (e) { if (e.status && e.status < 500) return res.status(e.status).json({ error: e.message }); throw e; }
-});
 app.get("/api/settings", requireAuth, api(async (req, res) => res.json({ settings: await library.getSettings(req.user.id), options: library.options() })));
 app.put("/api/settings", requireAuth, api(async (req, res) => res.json({ settings: await library.saveSettings(req.user.id, req.body || {}) })));
 app.get("/api/assistants", requireAuth, api(async (req, res) => res.json({ assistants: await library.listAssistants(req.user.id) })));
@@ -434,6 +491,7 @@ app.get("/api/account/export", requireAuth, wrap(async (req, res) => {
 
 app.delete("/api/account", requireAuth, authLimiter, async (req, res, next) => {
   try {
+    if (req.user.role === "owner") return res.status(403).json({ error: "The Creator account can't be deleted from here." });
     const row = await db.get("SELECT password_hash FROM users WHERE id=?", req.user.id);
     if (!(await bcrypt.compare(String(req.body?.password || ""), row.password_hash))) return res.status(400).json({ error: "Password is wrong — account not deleted.", code: "WRONG_PASSWORD" });
     await accounts.deleteUserData(req.user.id);
@@ -471,6 +529,8 @@ app.patch("/api/admin/users/:id", adminOnly, api(async (req, res) => {
   const id = idOf(req.params.id);
   if (!id) return res.status(404).json({ error: "User not found." });
   const { disabled, role, plan } = req.body || {};
+  const target = await db.get("SELECT role FROM users WHERE id=?", id);
+  if (target?.role === "owner" && (disabled !== undefined || role !== undefined || !roles.isOwner(req.user))) return res.status(403).json({ error: "The Creator's account is protected." });
   if (disabled === undefined && role === undefined && plan === undefined) return res.status(400).json({ error: "Send { disabled: true|false }, { role: \"admin\"|\"user\" } or { plan: \"free\"|\"max\" }." });
   if (plan !== undefined && !(await credits.setPlan(id, plan))) return res.status(404).json({ error: "User not found." });
   if (disabled !== undefined) {
@@ -478,7 +538,10 @@ app.patch("/api/admin/users/:id", adminOnly, api(async (req, res) => {
     if (id === req.user.id) return res.status(400).json({ error: "You can't disable your own account." });
     if (!(await admin.setDisabled(id, disabled))) return res.status(404).json({ error: "User not found." });
   }
-  if (role !== undefined && !(await admin.setRole(req.user.id, id, role))) return res.status(404).json({ error: "User not found." });
+  if (role !== undefined) {
+    if (role !== "user") return res.status(400).json({ error: "Admins are added only by an email invitation from the Creator area." });
+    await roles.removeAdmin(req.user, id); // Creator only; the Creator's own role can't be changed
+  }
   log("info", "admin changed user", { requestId: req.id, adminId: req.user.id, userId: id, disabled, role, plan });
   res.json({ ok: true });
 }));
@@ -783,6 +846,7 @@ app.use("/api", (req, res) => res.status(404).json({ error: "Not found." }));
 
 app.get("/admin", (req, res) => res.sendFile(path.join(__dirname, "public", "admin.html")));
 app.get("/reset", (req, res) => res.sendFile(path.join(__dirname, "public", "reset.html")));
+app.get("/invite", (req, res) => res.sendFile(path.join(__dirname, "public", "invite.html")));
 app.use(express.static(path.join(__dirname, "public")));
 app.get("*", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
@@ -827,6 +891,7 @@ async function main() {
     rolling: true,
     cookie: { httpOnly: true, sameSite: "lax", secure: IS_PROD, maxAge: 30 * 24 * 60 * 60 * 1000 }
   });
+  await roles.ensureOwner();
   await admin.ensureSetupCode();
   ai.loadTestResults(await loadProviderTests());
   const server = app.listen(PORT, () => {

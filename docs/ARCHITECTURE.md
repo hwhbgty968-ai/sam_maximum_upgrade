@@ -12,6 +12,8 @@ lib/ai.js            AI providers, routing, fallback, streaming, Sam Council
 lib/search.js        Web search + article reading
 lib/admin.js         Admin queries: users, usage, health, errors, backups
 lib/guests.js        Guest mode: in-memory guest chats, daily allowances (guest / network / all), opt-in save
+lib/roles.js         Roles (owner = Creator / admin / user), Creator usernames + suggestions, admin email invitations, audit log
+lib/mailer.js        Outgoing email over SMTP (nodemailer); nothing is sent until SMTP_USER/SMTP_PASS are set
 lib/credits.js       Plans and Sam Credits: prices, quotes, reserve → settle/cancel on a visible ledger, Max fair use, admin settings
 lib/accounts.js      Account data: reset tokens, export, deletion
 lib/log.js           Structured JSON logging + error log

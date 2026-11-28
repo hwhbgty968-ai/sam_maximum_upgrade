@@ -158,6 +158,7 @@ These are extra requirements on top of everything below. The **Stage** column gi
 | **4.1 AI provider diagnostics (master-plan Stage 3)** | Error categories, smarter fallback, live tests, admin diagnostics, honest error messages | ✅ Done (v4.1) |
 | **4.2 Guests and age (master-plan Stage 2, without email)** | Guest mode with daily limits, opt-in "save my guest chat", 13+ sign-up | ✅ Done (v4.2). Email verification and password-reset emails wait for a domain |
 | **4.3 Sam Credits (master-plan Stage 9a, no real money)** | Free 1,000/month, published prices, Max "Unlimited Sam Credits" with one published fair-use rule, ledger, admin settings | ✅ Done (v4.3). Payments (Stage 10) only after you approve costs |
+| **4.5 Creator & admin access** | Creator (owner) role, unique Creator usernames with suggestions, Creator-only email invitations for admins, audit log | ✅ Done (v4.5). Invitations send once SMTP settings are added |
 | **4. Research and learning** | Knowledge Base and files, Study Centre, Research Centre with a real search API, Universal Search | Next |
 | **5. Creative and productivity** | Documents and slides, images, voice, tasks and reminders; video is optional | Later |
 | **6. Coding and App Builder** | Coding Assistant, App Builder v1 with live preview; v2 in containers | Later |

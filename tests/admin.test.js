@@ -37,7 +37,7 @@ const { logError } = require(repo + "/lib/log.js");
     await assert.rejects(admin.claimAdmin(alice, "AAAA-BBBB-CCCC"), /isn't right/);
     await assert.rejects(admin.claimAdmin(alice, ""), /isn't right/);
     assert.ok(await admin.claimAdmin(ryder, " " + code.toLowerCase().replace(/-/g, " ") + " "));
-    assert.equal((await db.get("SELECT role FROM users WHERE id=?", ryder)).role, "admin");
+    assert.equal((await db.get("SELECT role FROM users WHERE id=?", ryder)).role, "owner", "the first person becomes the Creator (owner)");
     assert.equal(admin.status().setupOpen, false, "code is used up");
   });
   await t("once an admin exists nobody else can claim, even with the old code", async () => {
@@ -52,14 +52,18 @@ const { logError } = require(repo + "/lib/log.js");
     assert.ok(await admin.claimAdmin(ryder, "MY OWN CODE 123"));
     delete process.env.ADMIN_SETUP_CODE;
   });
-  await t("admins can promote/demote others but not themselves; disabled admins aren't admins", async () => {
-    await assert.rejects(admin.setRole(ryder, ryder, "user"), /own role/);
-    await assert.rejects(admin.setRole(ryder, alice, "superuser"), /admin or user/);
-    assert.ok(await admin.setRole(ryder, alice, "admin"));
-    assert.ok(admin.isAdmin(await db.get("SELECT * FROM users WHERE id=?", alice)));
+  await t("the Creator (owner) can remove admins, nobody can change the Creator; disabled admins aren't admins", async () => {
+    const roles = require(repo + "/lib/roles.js");
+    const owner = await db.get("SELECT * FROM users WHERE id=?", ryder);
+    assert.equal(owner.role, "owner", "the setup code makes the Creator");
+    await db.run("UPDATE users SET role='admin' WHERE id=?", alice);
+    const al = await db.get("SELECT * FROM users WHERE id=?", alice);
+    assert.ok(admin.isAdmin(al) && admin.isAdmin(owner));
     assert.ok(!admin.isAdmin({ role: "admin", disabled: 1 }));
-    assert.ok(await admin.setRole(ryder, alice, "user"));
-    assert.equal(await admin.setRole(ryder, 99999, "admin"), false);
+    await assert.rejects(roles.removeAdmin(al, ryder), /Only the Creator/);
+    await assert.rejects(roles.removeAdmin(owner, ryder), /Creator's role can't be changed/);
+    assert.equal(await roles.removeAdmin(owner, alice), true);
+    await assert.rejects(roles.removeAdmin(owner, 99999), /not found/);
   });
   await t("overview counts + database info", async () => {
     const o = await admin.overview();

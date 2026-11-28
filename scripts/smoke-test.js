@@ -228,8 +228,8 @@ function check(name, ok, detail = "") {
     check("admin usage report loads", us.status === 200 && Array.isArray(us.data.rows), us.text);
     check("admin error log loads", (await ADM("GET", "/api/admin/errors")).status === 200);
     if (uA) {
-      check("admin can make user A an admin", (await ADM("PATCH", `/api/admin/users/${uA.id}`, { role: "admin" })).status === 200 && (await A("GET", "/api/status")).data.isAdmin === true);
-      check("…and take it away again", (await ADM("PATCH", `/api/admin/users/${uA.id}`, { role: "user" })).status === 200 && (await A("GET", "/api/status")).data.isAdmin === false);
+      check("nobody can promote directly: admins are added only by email invitation", (await ADM("PATCH", `/api/admin/users/${uA.id}`, { role: "admin" })).status === 400 && (await A("GET", "/api/status")).data.isAdmin === false);
+      check("ordinary users can't open the Creator area or send invitations", (await A("GET", "/api/creator")).status === 403 && (await A("POST", "/api/creator/invites", { email: "x@example.com" })).status === 403);
     }
     const dl = await ADM("GET", "/api/admin/backup/download");
     check("admin can download a full backup", dl.status === 200 && dl.data.format === "sam-backup-v1" && dl.data.counts?.users >= 2, dl.text.slice(0, 200));
