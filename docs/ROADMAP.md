@@ -141,7 +141,7 @@ These are extra requirements on top of everything below. The **Stage** column gi
 - Later: two-factor login, an audit log of admin actions, security alerts
 
 ### ⚠️ Before any public launch
-- **Children's data:** Sam currently accepts ages 5 and up. Under UK GDPR, services for under-13s need **parental consent** and must follow the ICO Children's Code. Either set the minimum age to 13 or build a parental-consent flow.
+- **Children's data:** ✅ v4.2 sign-up is 13+ (under UK GDPR, under-13s would need **parental consent**). Accounts made before v4.2 with a lower age still exist; decide whether to keep them. The ICO Children's Code still applies to 13–17s: high privacy by default, no nudging, plain-language terms.
 - **Privacy policy and terms of service**, plus a clear statement of which AI providers receive users' messages
 - **Costs:** every message costs real money. Use usage budgets, cheap default models and caching. Never advertise "unlimited".
 
@@ -154,6 +154,7 @@ These are extra requirements on top of everything below. The **Stage** column gi
 | **1–3. Foundation, redesign, AI core** | Accounts, security, multi-model AI, Council, memory, assistants, admin, Base44 design | ✅ Done (v3.4) |
 | **4.0 Permanent foundation** | Postgres on Neon, backups and restore, admin setup code | ✅ Done (v4.0). File store and job system arrive with their first users in Stage 4 |
 | **4.1 AI provider diagnostics (master-plan Stage 3)** | Error categories, smarter fallback, live tests, admin diagnostics, honest error messages | ✅ Done (v4.1) |
+| **4.2 Guests and age (master-plan Stage 2, without email)** | Guest mode with daily limits, opt-in "save my guest chat", 13+ sign-up | ✅ Done (v4.2). Email verification and password-reset emails wait for a domain |
 | **4. Research and learning** | Knowledge Base and files, Study Centre, Research Centre with a real search API, Universal Search | Next |
 | **5. Creative and productivity** | Documents and slides, images, voice, tasks and reminders; video is optional | Later |
 | **6. Coding and App Builder** | Coding Assistant, App Builder v1 with live preview; v2 in containers | Later |

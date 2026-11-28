@@ -48,6 +48,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .auth-card .row{margin-top:18px}
 /* app layout */
 .app{display:flex;height:100vh;overflow:hidden}
+/* Guest mode: plain chat only — account features are hidden, not faked */
+body.guest .sidebar,body.guest .scrim,body.guest #menuBtn,body.guest #autoPill,body.guest #modeLabel,body.guest #clearChat,body.guest #newConvTop,
+body.guest .recent-head,body.guest #recentList,body.guest #attachImage,body.guest #webToggle,body.guest .auto-wrap,body.guest #councilToggle,
+body.guest #councilPick,body.guest #chipMemory,body.guest #chipWeb,body.guest #chipAuto,body.guest .quick button[data-q*="attach"],body.guest .disclaimer .link-btn{display:none!important}
+.guest-bar{display:none;align-items:center;gap:10px;flex-wrap:wrap;margin:0 auto 10px;max-width:860px;padding:10px 14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);font-size:13px;color:var(--muted)}
+body.guest .guest-bar{display:flex}
+.guest-bar b{color:var(--text)}.guest-bar .grow{flex:1}.guest-bar button{padding:7px 12px;font-size:13px}
+.guest-bar.out{border-color:var(--accent)}
+.guest-link{display:block;width:100%;margin-top:14px;text-align:center}
+.keep-guest{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:13px;color:var(--muted)}.keep-guest input{margin-top:2px}
 .sidebar{width:280px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 14px;gap:12px;overflow-y:auto}
 .profile{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:16px;padding:12px;background:var(--panel);width:100%;text-align:left;color:var(--text)}
 .avatar{width:38px;height:38px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;color:var(--accent);font-weight:700;flex:none}
@@ -267,9 +277,11 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 <div class="brand-row"><div class="logo">S</div><div><div class="brand-name">SAM</div><div class="brand-sub">PERSONAL AI</div></div></div>
 <h2>Welcome to Sam</h2><p class="muted">Log in, or create an account to keep your chats, memories and settings.</p>
 <label for="username">Username</label><input id="username" class="field" maxlength="24" autocomplete="username" placeholder="3–24 letters, numbers, _ or -">
-<div id="ageField" hidden><label for="age">Age</label><input id="age" class="field" type="number" min="5" max="120" placeholder="Your age"></div>
+<div id="ageField" hidden><label for="age">Age</label><input id="age" class="field" type="number" min="13" max="120" placeholder="Your age (Sam is for ages 13 and up)"></div>
 <label for="password">Password</label><input id="password" class="field" type="password" autocomplete="current-password" placeholder="At least 10 characters">
+<label id="keepGuestRow" class="keep-guest hidden"><input type="checkbox" id="keepGuest"> <span>Save my guest chat to this account (otherwise it's deleted)</span></label>
 <div class="row"><button id="login" class="primary">Log in</button><button id="register" class="secondary">Create account</button></div>
+<button id="guestBtn" class="link-btn guest-link hidden">Try Sam without an account →</button>
 <p id="authMessage" class="notice">Your account is stored on the server hosting this app. Use a unique password.</p>
 </div>
 </section>
@@ -343,6 +355,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:24px auto}
 
 ">Debug code snippet</button></div>
 <div id="councilPick" class="council-pick hidden"></div>
+<div id="guestBar" class="guest-bar" role="status"><span>👋 <b>Guest mode</b> · <span id="guestLeft"></span> · chats aren't saved</span><span class="grow"></span><button id="guestSignup" class="primary">Create free account</button><button id="guestLogin" class="secondary">Log in</button><button id="guestLeave" class="secondary">Leave &amp; delete chat</button></div>
 <div id="editBanner" class="edit-banner hidden"><span>✏️ Editing your message — sending replaces it and everything after it.</span><button id="cancelEdit" class="secondary">Cancel</button></div>
 <div class="composer compose">
 <input type="file" id="imageUpload" accept="image/*" hidden>
@@ -434,13 +447,30 @@ const $=id=>document.getElementById(id);let voiceOn=false,recognition=null;
 const SESSION_CODES=['AUTH_REQUIRED','PASSWORD_CHANGED','ACCOUNT_DISABLED'];
 function authExpired(d={}){const m=d.code==='ACCOUNT_DISABLED'?'This account has been disabled.':d.code==='PASSWORD_CHANGED'?'Your password was changed — please log in again.':'Your session ended — please log in again.';showAuth(m);return Error(m)}
 async function api(url,opts={}){let r;try{r=await fetch(url,{...opts,headers:{'Content-Type':'application/json',...(opts.headers||{})}})}catch(e){throw Error('Can\'t reach Sam\'s server. Check your connection.')}const d=await r.json().catch(()=>({}));if(r.status===401&&SESSION_CODES.includes(d.code))throw authExpired(d);if(!r.ok)throw Error(d.error||'Something went wrong');return d}
-let registering=false;
+let registering=false,guestMode=false,guestInfo=null,guestAvailable=false;
 function setAuthMode(mode){registering=mode;$('ageField').hidden=!mode;$('login').textContent=mode?'Back to log in':'Log in';$('register').textContent=mode?'Sign up':'Create account';$('authMessage').textContent=mode?'Enter your age, username and password to create an account.':'Log in with your username and password.'}
-function showAuth(msg=''){setAuthMode(false);$('adminLink').classList.add('hidden');document.body.classList.remove('drawer-open');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
-function showApp(username){$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);$('profileSub').textContent=s.isAdmin?'Admin':'Personal account';$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
-async function boot(){try{const s=await api('/api/status');if(s.loggedIn)showApp(s.username);else showAuth();const n=(s.providers||[]).length;$('aiState').textContent=s.aiConfigured?n+' AI provider'+(n===1?'':'s'):'No AI key configured';$('systemStatus').textContent=s.aiConfigured?'Sam · Online & Learning':'Sam · Setup needed';$('systemStatus').classList.toggle('warn',!s.aiConfigured);$('chipOnline').textContent=s.aiConfigured?'Online':'AI offline';$('chipOnline').classList.toggle('on',!!s.aiConfigured)}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
-$('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
-$('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value})});showApp(d.username)}catch(e){$('authMessage').textContent=e.message}};
+function showAuth(msg='',mode=false){guestMode=false;document.body.classList.remove('guest');setAuthMode(mode);$('guestBtn').classList.toggle('hidden',!guestAvailable);$('guestBtn').textContent=guestInfo?'← Back to my guest chat':'Try Sam without an account →';$('keepGuestRow').classList.toggle('hidden',!(guestInfo&&guestInfo.hasChat));$('keepGuest').checked=false;$('adminLink').classList.add('hidden');document.body.classList.remove('drawer-open');$('authView').classList.remove('hidden');$('appView').classList.add('hidden');$('logout').classList.add('hidden');if(msg)$('authMessage').textContent=msg}
+function showApp(username){guestMode=false;guestInfo=null;document.body.classList.remove('guest');$('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('logout').classList.remove('hidden');$('welcomeUser').textContent=username;$('helloName').textContent=username;$('avatarInitial').textContent=(username[0]||'S').toUpperCase();$('accountName').textContent=username;loadSettings().then(loadModels);loadAssistants();loadHistory();api('/api/status').then(s=>{$('adminLink').classList.toggle('hidden',!s.isAdmin);$('profileSub').textContent=s.isAdmin?'Admin':'Personal account';$('claimBox').classList.toggle('hidden',!s.adminSetupOpen)}).catch(()=>{})}
+async function boot(){try{const s=await api('/api/status');guestAvailable=!!s.guestMode;guestInfo=s.guest;if(s.loggedIn)showApp(s.username);else if(s.guest)showGuest();else showAuth();const n=(s.providers||[]).length;$('aiState').textContent=s.aiConfigured?n+' AI provider'+(n===1?'':'s'):'No AI key configured';$('systemStatus').textContent=s.aiConfigured?'Sam · Online & Learning':'Sam · Setup needed';$('systemStatus').classList.toggle('warn',!s.aiConfigured);$('chipOnline').textContent=s.aiConfigured?'Online':'AI offline';$('chipOnline').classList.toggle('on',!!s.aiConfigured)}catch(e){showAuth('Could not reach Sam server. Start it using npm start.')}} 
+const keepGuestChoice=()=>!$('keepGuestRow').classList.contains('hidden')&&$('keepGuest').checked;
+async function afterAuth(d){showApp(d.username);if(d.guestChatId){await loadConversations().catch(()=>{});openConversation(d.guestChatId).catch(()=>{})}}
+$('register').onclick=async()=>{if(!registering){setAuthMode(true);return}try{const d=await api('/api/register',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,age:$('age').value,keepGuestChat:keepGuestChoice()})});afterAuth(d)}catch(e){$('authMessage').textContent=e.message}};
+$('login').onclick=async()=>{if(registering){setAuthMode(false);return}try{const d=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('username').value,password:$('password').value,keepGuestChat:keepGuestChoice()})});afterAuth(d)}catch(e){$('authMessage').textContent=e.message}};
+// ---- Guest mode: plain chat, Fast models, a daily allowance, nothing saved ----
+function renderGuestBar(){const g=guestInfo||{};const left=g.remaining??0;$('guestLeft').textContent=left>0?`${left} of ${g.limit} free messages left today`:'no free messages left today';$('guestBar').classList.toggle('out',left<=0)}
+async function showGuest(){
+  guestMode=true;document.body.classList.add('guest');document.body.classList.remove('drawer-open');
+  $('authView').classList.add('hidden');$('appView').classList.remove('hidden');$('helloName').textContent='Guest';
+  currentConversationId=null;$('messages').innerHTML='';showSection('chat');
+  try{const d=await api('/api/guest/chat');guestInfo={...guestInfo,...d,hasChat:d.messages.length>0};d.messages.forEach(m=>addMsg(m.content,m.role==='user'?'user':'sam',null,m.model));showWelcome(!d.messages.length)}
+  catch(e){showWelcome(true)}
+  renderGuestBar();
+}
+function guestEnded(){guestInfo=null;showAuth('Your guest session has ended. Start a new one, or log in.')}
+$('guestBtn').onclick=async()=>{try{const d=await api('/api/guest/start',{method:'POST'});guestInfo={...guestInfo,...d};showGuest()}catch(e){$('authMessage').textContent=e.message}};
+$('guestSignup').onclick=()=>{showAuth('Create a free account to keep chatting. Tick the box to keep this chat.',true)};
+$('guestLogin').onclick=()=>{showAuth('Log in to your account. Tick the box to keep this chat.')};
+$('guestLeave').onclick=async()=>{await api('/api/guest/end',{method:'POST'}).catch(()=>{});guestInfo=null;$('messages').innerHTML='';showAuth('Guest chat deleted.')};
 $('logout').onclick=async()=>{await api('/api/logout',{method:'POST'});showAuth('You are logged out.')};
 // ---- Safe mini markdown renderer (escapes HTML first, so AI output can't inject scripts) ----
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
@@ -504,9 +534,11 @@ function setBusy(b){$('send').classList.toggle('hidden',b);$('stop').classList.t
 async function streamChat(body){
   activeController=new AbortController();
   let r;
-  try{r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,model:$('modelPick').value,speed:$('speedPick').value,...(body.mode==='council'||body.council?{councilModels:councilSelection()}:{})}),signal:activeController.signal})}
+  const url=guestMode?'/api/guest/chat':'/api/chat';
+  const payload=guestMode?{message:body.message}:{...body,model:$('modelPick').value,speed:$('speedPick').value,...(body.mode==='council'||body.council?{councilModels:councilSelection()}:{})};
+  try{r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:activeController.signal})}
   catch(e){if(e.name==='AbortError')return {answer:'',streamed:true,stopped:true};throw Error('Can\'t reach Sam\'s server. Check your connection.')}
-  if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
+  if(!r.ok||!r.body){const d=await r.json().catch(()=>({}));if(guestMode&&d.code==='GUEST_REQUIRED'){guestEnded();throw Error(d.error)}if(guestMode&&d.code==='GUEST_LIMIT'){guestInfo={...guestInfo,remaining:0};renderGuestBar()}if(r.status===401)throw authExpired(d);throw Error(d.error||'Something went wrong')}
   const el=addMsg('','sam');const md=()=>el.querySelector('.md');
   md().classList.add('typing');md().innerHTML='<span class="status-line">Thinking…</span>';
   const reader=r.body.getReader();const dec=new TextDecoder();let buf='',answer='',meta={};
@@ -518,6 +550,7 @@ async function streamChat(body){
       for(const ev of events){
         if(!ev.startsWith('data: '))continue;
         const d=JSON.parse(ev.slice(6));
+        if(guestMode&&d.remaining!==undefined){guestInfo={...guestInfo,remaining:d.remaining,limit:d.limit??guestInfo?.limit,hasChat:true};renderGuestBar()}
         if(d.error)throw Error(d.error);
         if(d.status&&!answer){md().innerHTML='';const sp=document.createElement('span');sp.className='status-line';sp.textContent=d.status;md().append(sp)}
         if(d.model)setVia(el,d.model);
@@ -597,7 +630,7 @@ async function send(q){
     if(d.conversationId)currentConversationId=d.conversationId;if(d.mode)currentMode=d.mode;const samEl=d.streamed?d.el:addMsg(d.answer,'sam',null,d.model);
     if(d.userMessageId)decorate(userEl,{id:d.userMessageId,role:'user',content:file?'[Image] '+(q||''):q});
     if(d.assistantMessageId&&samEl)decorate(samEl,{id:d.assistantMessageId,role:'assistant',content:d.answer,meta:d.council});
-    refreshRegen();await loadConversations();
+    if(!guestMode){refreshRegen();await loadConversations()}
     if(voiceOn&&d.answer&&!d.stopped)speak(d.answer);
   }catch(e){if(editId&&currentConversationId)await openConversation(currentConversationId).catch(()=>{});addMsg(e.message,'sam')}
   finally{setBusy(false)}
