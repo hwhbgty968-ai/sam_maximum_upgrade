@@ -142,7 +142,8 @@ const quiet = { warn: () => {} };
     assert.equal(c(mk(503, "503 status code (no body)")), "outage");
     assert.equal(c(mk(529, "529 Overloaded")), "outage");
     assert.equal(c(mk(undefined, "Connection error.", { name: "APIConnectionError" })), "network");
-    assert.equal(c(mk(undefined, "Request timed out.", { name: "APIConnectionTimeoutError" })), "network");
+    assert.equal(c(mk(undefined, "Request timed out.", { name: "APIConnectionTimeoutError" })), "timeout");
+    assert.equal(c(mk(undefined, "connect ETIMEDOUT 1.2.3.4:443")), "network");
     assert.equal(c(mk(400, "400 context too long")), "bad_request");
     assert.equal(c(new TypeError("x is not a function")), "unknown");
   });
@@ -228,6 +229,31 @@ const quiet = { warn: () => {} };
     assert.ok(!ai.routeCandidates({ speed: "balanced", message: "x" }).some(c => c.model === "gemini-3.5-flash"));
     const st = ai.providerStatus().gemini;
     assert.equal(st.failures.model_not_found, 1); assert.equal(st.lastError.kind, "model_not_found");
+  });
+
+  await t("a model that hangs is abandoned after the wait limit, Sam answers with the next one, and the hung model cools down", async () => {
+    process.env.AI_FIRST_TOKEN_TIMEOUT_MS = "150"; process.env.AI_REQUEST_TIMEOUT_MS = "150";
+    global.FAKE = { [G]: { hangModels: { "gemini-3.1-flash-lite": true }, reply: b => "answer from " + b.model } };
+    const w = console.warn; console.warn = () => {};
+    init({ GEMINI_API_KEY: "g" });
+    const t0 = Date.now(); let out = "";
+    const r = await ai.stream({ messages: [], candidates: ai.routeCandidates({ speed: "fast", message: "x" }), onDelta: d => out += d });
+    assert.ok(Date.now() - t0 < 1500, "didn't wait for the client's 2-minute timeout");
+    assert.equal(r.model, "gemini-3.5-flash"); assert.equal(r.attempts[0].kind, "timeout");
+    assert.match(r.attempts[0].message, /no answer within/);
+    assert.equal(ai.routeCandidates({ speed: "fast", message: "x" })[0].model, "gemini-3.5-flash", "the hung model is tried last for a while");
+    const c2 = await ai.complete({ messages: [], candidates: [{ provider: "gemini", model: "gemini-3.1-flash-lite", tier: "fast" }, { provider: "gemini", model: "gemini-3.5-flash", tier: "balanced" }] });
+    assert.equal(c2.model, "gemini-3.5-flash", "non-streaming calls have a deadline too");
+    const run = await ai.testProviders({ timeoutMs: 150 });
+    assert.equal(run.results.gemini.models[0].kind, "timeout", "the live test reports 'No answer in time', not 'Network problem'");
+    // a slow-but-working stream isn't cut off once words are flowing
+    global.FAKE = { [G]: { delay: 60, reply: () => "a fairly long answer that takes a while to stream" } };
+    init({ GEMINI_API_KEY: "g" }); let o2 = "";
+    const r2 = await ai.stream({ messages: [], candidates: ai.routeCandidates({ speed: "fast", message: "x" }), onDelta: d => o2 += d });
+    console.warn = w; delete process.env.AI_FIRST_TOKEN_TIMEOUT_MS; delete process.env.AI_REQUEST_TIMEOUT_MS;
+    assert.equal(o2, "a fairly long answer that takes a while to stream"); assert.equal(r2.attempts.length, 0);
+    const err = ai.describeFailure(Object.assign(new Error("x"), { primary: { kind: "timeout", provider: "gemini" } }));
+    assert.equal(err, "Gemini took too long to answer. Please try again in a minute.");
   });
 
   console.log(`\nai.js: ${pass} passed`);

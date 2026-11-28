@@ -2,7 +2,7 @@
 //   models: [...]            model list            listError / listStatus   make models.list() fail
 //   reply: body => text      the answer            delay                    ms between streamed chunks
 //   fail / status            every call fails      failModels: {model: {status, message}}  only those models fail
-//   failMidStream            fails after 2 chunks
+//   failMidStream            fails after 2 chunks     hangModels: {model: true}  never answers (until aborted)
 class FakeOpenAI {
   constructor(opts) {
     this.opts = opts;
@@ -11,6 +11,7 @@ class FakeOpenAI {
     this.models = { list: async () => { const c = cfg(); if (c.listError) throw err(c.listError, c.listStatus); return (async function* () { for (const id of c.models || []) yield { id }; })(); } };
     this.chat = { completions: { create: async (body, reqOpts = {}) => {
       const c = cfg(); (global.CALLS ||= []).push({ base: opts.baseURL || "openai", body });
+      if (c.hangModels?.[body.model]) await new Promise((_, rej) => { const sig = reqOpts.signal; const stop = () => { const e = new Error("Request was aborted."); e.name = "APIUserAbortError"; rej(e); }; if (sig?.aborted) stop(); sig?.addEventListener("abort", stop, { once: true }); });
       const fm = c.failModels?.[body.model];
       if (fm) throw err(fm.message || "failed", fm.status);
       if (c.fail) throw err(c.fail, c.status || 500);

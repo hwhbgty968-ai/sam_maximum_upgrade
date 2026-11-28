@@ -80,6 +80,7 @@ Log in to Sam, open **Settings → Become admin**, and enter the code. On Render
 | `<PROVIDER>_MODEL_<FAST\|BALANCED\|DEEP>` | no | Overrides the model for a tier, e.g. `GEMINI_MODEL_DEEP` |
 | `MAX_TOKENS` | no | Reply budget for Balanced (default 4000). Fast gets half, Deep gets double |
 | `COUNCIL_CHAIR_SPEED` | no | Tier used to combine council answers (default `balanced`) |
+| `AI_FIRST_TOKEN_TIMEOUT_MS` / `AI_REQUEST_TIMEOUT_MS` | no | How long Sam waits for a model before trying the next one. Defaults: first words within 30 s (Fast), 45 s (Balanced), 90 s (Deep); whole non-streamed answers within 60 / 90 / 150 s |
 | `PROVIDER_STARTUP_TEST` | no | `0` turns off the automatic startup test of every model (default on, at most once every 6 hours, a few tokens per model) |
 | `DATABASE_URL` | recommended on hosting | Postgres connection string (e.g. from Neon). When set, Sam stores everything there permanently. When empty, Sam uses `sam.sqlite` in `DATA_DIR` |
 | `PG_POOL_MAX` | no | Max database connections (default 5) |
