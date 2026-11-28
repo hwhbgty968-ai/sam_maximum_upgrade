@@ -82,6 +82,8 @@ Old `.env` files still work. `OPENAI_MODEL` and `AI_MODEL` are still read.
 3. Enter your AI keys when Render asks for them.
 4. Open the site, then run the smoke test against it: `BASE_URL=https://your-app.onrender.com npm run test:smoke`
 
+If a deploy fails with `was compiled against a different Node.js version`, the build cache holds packages built for another Node version. `npm install` now rebuilds the database library automatically (`postinstall`); if it ever happens anyway, use **Manual Deploy → Clear build cache & deploy**.
+
 ⚠️ **Render's free plan has no persistent disk.** On it, every deploy or restart **wipes all accounts and chats**. Use a paid instance with the disk, or wait for the Postgres option planned for stage 2.
 
 ## Backups
