@@ -233,6 +233,46 @@ const quiet = { warn: () => {} };
     assert.match(deep.switchReason, /Rate limited \(429\)/);
   });
 
+  await t("live case: Pro 429, its backups unusable → Ezer finds a working model on the key's own list", async () => {
+    global.FAKE = { [G]: { models: ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.6-flash", "gemini-3-pro-preview", "gemini-3.1-flash-tts", "text-embedding-005"],
+      failModels: { "gemini-3.1-pro-preview": { status: 429, message: "429 status code (no body)" }, "gemini-3-pro-preview": { status: 429, message: "429 limit: 0" }, "gemini-3.5-flash": { status: 503, message: "503 overloaded" } } } };
+    global.CALLS = []; const w = console.warn; console.warn = () => {};
+    init({ GEMINI_API_KEY: "g" }); await ai.verifyModels(quiet);
+    const run = await ai.testProviders({ retryDelayMs: 5, log: { warn() {} } });
+    console.warn = w;
+    const deep = run.results.gemini.models.find(m => m.tier === "deep");
+    assert.deepEqual([deep.model, deep.ok, deep.switchedFrom], ["gemini-3.6-flash", true, "gemini-3.1-pro-preview"]);
+    assert.ok(!CALLS.some(c => /tts|embedding/.test(c.body.model)), "never tries non-chat models");
+    assert.equal(ai.routeCandidates({ speed: "deep", message: "x" })[0].model, "gemini-3.6-flash");
+  });
+
+  await t("still rate limited after the retry and nothing else works → kept out of the way for 30 minutes", async () => {
+    global.FAKE = { [G]: { models: ["gemini-3.1-flash-lite", "gemini-3.1-pro-preview"], failModels: { "gemini-3.1-pro-preview": { status: 429, message: "429 status code (no body)" } } } };
+    const w = console.warn; console.warn = () => {};
+    init({ GEMINI_API_KEY: "g" }); await ai.verifyModels(quiet);
+    process.env.GEMINI_MODEL_BALANCED = "gemini-3.1-flash-lite";
+    const run = await ai.testProviders({ retryDelayMs: 5, log: { warn() {} } });
+    delete process.env.GEMINI_MODEL_BALANCED;
+    console.warn = w;
+    const deep = run.results.gemini.models.find(m => m.tier === "deep");
+    const cool = ai.providerStatus().gemini.cooling[deep.switchedFrom || "gemini-3.1-pro-preview"];
+    assert.ok(deep.ok ? deep.switchedFrom === "gemini-3.1-pro-preview" : cool && cool.secondsLeft > 1700, JSON.stringify([deep, cool]));
+  });
+
+  await t("once the original model works again (e.g. billing enabled), the next test switches back", async () => {
+    global.FAKE = { [G]: { failModels: { "gemini-3.1-pro-preview": { status: 429, message: "429 limit: 0" } } } };
+    const w = console.warn; console.warn = () => {};
+    init({ GEMINI_API_KEY: "g" });
+    await ai.testProviders({ retryDelayMs: 5, log: { warn() {} } });
+    assert.equal(ai.routeCandidates({ speed: "deep", message: "x" })[0].model, "gemini-2.5-pro");
+    delete global.FAKE[G].failModels;
+    const again = await ai.testProviders({ retryDelayMs: 5, log: { warn() {} } });
+    console.warn = w;
+    const deep = again.results.gemini.models.find(m => m.tier === "deep");
+    assert.deepEqual([deep.model, deep.ok, deep.switchedFrom], ["gemini-3.1-pro-preview", true, undefined]);
+    assert.deepEqual(ai.providerStatus().gemini.switched, {});
+  });
+
   await t("a one-off rate limit that clears on the retry doesn't cause a switch", async () => {
     let n = 0;
     global.FAKE = { [G]: { reply: b => { if (b.model === "gemini-3.1-pro-preview" && n++ === 0) throw Object.assign(new Error("429 status code (no body)"), { status: 429 }); return "OK"; } } };
@@ -244,15 +284,21 @@ const quiet = { warn: () => {} };
     assert.deepEqual([deep.model, deep.ok, deep.switchedFrom], ["gemini-3.1-pro-preview", true, undefined]);
   });
 
-  await t("nothing to switch to → the failure is reported honestly and Ezer routes around it", async () => {
+  await t("only one model answers → every failing tier uses it (shown as a switch); nothing answers → failures reported, nothing switched", async () => {
     global.FAKE = { [G]: { models: ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.1-pro-preview"], failModels: { "gemini-3.1-pro-preview": { status: 429, message: "429 limit: 0" }, "gemini-3.5-flash": { status: 429, message: "429 limit: 0" } } } };
     const w = console.warn; console.warn = () => {};
     init({ GEMINI_API_KEY: "g" }); await ai.verifyModels(quiet);
     const run = await ai.testProviders({ retryDelayMs: 5, log: { warn() {} } });
     console.warn = w;
     const deep = run.results.gemini.models.find(m => m.tier === "deep");
-    assert.deepEqual([deep.model, deep.ok, deep.kind], ["gemini-3.1-pro-preview", false, "quota"]);
-    assert.equal(ai.routeCandidates({ speed: "deep", message: "x" })[0].model, "gemini-3.1-flash-lite", "no answerable Deep or Balanced → Fast");
+    assert.deepEqual([deep.model, deep.ok, deep.switchedFrom], ["gemini-3.1-flash-lite", true, "gemini-3.1-pro-preview"], "the only model that answers is used, and the switch is shown");
+    assert.equal(ai.routeCandidates({ speed: "deep", message: "x" })[0].model, "gemini-3.1-flash-lite");
+    global.FAKE[G].fail = "503 down"; global.FAKE[G].status = 503;
+    const w2 = console.warn; console.warn = () => {};
+    init({ GEMINI_API_KEY: "g" }); await ai.verifyModels(quiet);
+    const none = await ai.testProviders({ retryDelayMs: 5, log: { warn() {} } });
+    console.warn = w2;
+    assert.ok(none.results.gemini.models.every(m => m.sameAs || (!m.ok && !m.switchedFrom)), "when nothing answers, nothing is switched and every failure is reported");
   });
 
   await t("a model that doesn't exist is skipped; an outage only cools down briefly", async () => {
