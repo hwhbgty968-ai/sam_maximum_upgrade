@@ -841,6 +841,8 @@ app.post("/api/analyse-image", requireAuth, chatLimiter, (req, res, next) => {
 app.post("/api/chat", requireAuth, chatLimiter, wrap(async (req, res, next) => {
   if (!ai.isConfigured()) return res.status(503).json({ error: "No AI key configured. Add GEMINI_API_KEY (or another provider key) to .env." });
   const userId = req.user.id;
+  // Only the database-verified Creator can activate Owner Mode for this request.
+  const ownerMode = roles.isOwner(req.user) && req.body.ownerMode === true;
   const mode = MODES.includes(req.body.mode) ? req.body.mode : "chat";
   const useCouncil = mode === "council" || req.body.council === true;
   const regenerate = req.body.regenerate === true;
