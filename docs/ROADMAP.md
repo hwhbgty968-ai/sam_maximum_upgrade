@@ -128,15 +128,14 @@ These are extra requirements on top of everything below. The **Stage** column gi
 ### 14. Independence and infrastructure
 - ✅ Own codebase, login, database, AI connections, GitHub flow, backup script
 - ✅ Automatic daily backups, error log, monitoring in the admin dashboard
-- 🔌 or 🧱 **Hosting persistence:** Render's free web services can't have a disk, so the SQLite file is wiped on every deploy. Options:
-  - A paid Render instance with a disk (works today with no code changes)
-  - **Neon Postgres free tier:** no expiry, and it sleeps when idle (best free option; needs the Postgres adapter)
-  - Supabase free tier: pauses after a week of low activity until you resume it by hand
-  - Render free Postgres: **expires after 30 days**, so it's not suitable
-- 🧱 Scaling to many servers needs Postgres plus shared file storage. SQLite is fine for one server and hundreds of users.
+- ✅ v4.0 **Permanent database:** Sam runs on Postgres when `DATABASE_URL` is set (live on Neon's free plan, US-East next to the Render server), and on SQLite otherwise. One code path, tested on both. Data, logins and admin rights survive restarts and redeploys.
+- ✅ v4.0 Full JSON backup download, `npm run backup` / `npm run restore`, SQLite → Postgres migration, and Neon's own point-in-time restore (6 hours on free)
+- 🔨 Next: a file store (Cloudflare R2, free 10 GB) for the File Library and automatic off-site backup copies, and a job system for background tasks. These come with their first users in Stage 4.
+- 🧱 Scaling to many servers needs shared file storage too. One server is fine for hundreds of users.
 
 ### 15. Security and administration
-- ✅ Roles (`ADMIN_USERNAMES`), user management, disabling accounts, usage and cost view, provider health, error log with ref codes, backups from the admin panel, password change and reset links, data export, account deletion, CSRF protection, rate limits that only count failed logins
+- ✅ v4.0 Admin roles stored in the database; the first admin is set with a one-time setup code from the server log, then admins promote or demote others. (`ADMIN_USERNAMES` is retired.)
+- ✅ User management, disabling accounts, usage and cost view, provider health, error log with ref codes, backups from the admin panel, password change and reset links, data export, account deletion, CSRF protection, rate limits that only count failed logins
 - Later: two-factor login, an audit log of admin actions, security alerts
 
 ### ⚠️ Before any public launch
@@ -146,17 +145,16 @@ These are extra requirements on top of everything below. The **Stage** column gi
 
 ---
 
-## Build order (matches the master plan's 8 stages)
+## Build order (the approved master roadmap, Nov 2026)
 
-| Stage | Contents | Needs from you |
+| Stage | Contents | Status |
 |---|---|---|
-| **1. Foundation** | ✅ Login, messaging, multi-model core, admin, account security, error log, backups | Decide on hosting: paid disk or Neon Postgres |
-| **2. Advanced AI** | ✅ v3.2 chat essentials. ✅ v3.3 Settings Centre, assistants, Prompt Library, Model Marketplace, automatic task recognition. **Next:** smart memory, real web search, research reports, document reading | A search API key (free tier is fine) |
-| **3. Education and productivity** | Frontend rebuild, Study Centre, files and projects, tasks, PWA, then Google integrations | A Google Cloud OAuth app |
-| **4. Creative Studio** | Images, presentations, text-to-speech and speech-to-text, then video | Budget for image and video calls |
-| **5. App Builder** | v1 front-end builder with sandboxed preview and GitHub export; v2 full-stack in containers | A container provider for v2 |
-| **6. Agents** | Tools framework, approvals, scheduled jobs | A Render worker or cron job |
-| **7. Community and developers** | Sharing, moderation, Sam API, webhooks | Legal pages and moderation plan |
-| **8. Platform** | Native apps, multi-server scale | Apple and Google developer accounts |
+| **1–3. Foundation, redesign, AI core** | Accounts, security, multi-model AI, Council, memory, assistants, admin, Base44 design | ✅ Done (v3.4) |
+| **4.0 Permanent foundation** | Postgres on Neon, backups and restore, admin setup code | ✅ Done (v4.0). File store and job system arrive with their first users in Stage 4 |
+| **4. Research and learning** | Knowledge Base and files, Study Centre, Research Centre with a real search API, Universal Search | Next |
+| **5. Creative and productivity** | Documents and slides, images, voice, tasks and reminders; video is optional | Later |
+| **6. Coding and App Builder** | Coding Assistant, App Builder v1 with live preview; v2 in containers | Later |
+| **7. Independent platform** | Own domain, installable app, developer API, webhooks, shared projects | Later |
+| **8. Testing and release** | Runs alongside every stage: unit, browser, smoke, security, restore drills | Ongoing |
 
 Each stage gets tested (including with several user accounts) and goes through a pull request before it's merged.

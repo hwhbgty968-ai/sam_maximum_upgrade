@@ -2,6 +2,8 @@
 // Options:
 //   BASE_URL=https://your-sam.onrender.com npm run test:smoke      test a deployed copy
 //   SMOKE_ADMIN_USER=you SMOKE_ADMIN_PASS='...' npm run test:smoke  also test the admin dashboard
+//   SMOKE_ADMIN_SETUP_CODE=XXXX-XXXX-XXXX npm run test:smoke        on a brand-new Sam with no admin yet: a throwaway
+//                                                                    account claims admin with the setup code from the logs
 // Creates throwaway accounts (smokeA_…, smokeB_…). User B deletes itself at the end.
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 let passed = 0, failed = 0;
@@ -38,6 +40,8 @@ function check(name, ok, detail = "") {
   console.log("Basics");
   const health = await anon("GET", "/healthz");
   check("health check responds", health.status === 200 && health.data.ok, health.text);
+  const engine = health.data.database || "sqlite";
+  console.log(`  (database: ${engine})`);
   const st = await anon("GET", "/api/status");
   check("status works logged out", st.status === 200 && st.data.loggedIn === false);
   check("every response has a request ID", !!st.headers.get("x-request-id"));
@@ -74,6 +78,10 @@ function check(name, ok, detail = "") {
   const evil = await A("POST", "/api/memories", { content: "from evil site" }, { Origin: "https://evil.example" });
   check("cross-site request blocked (CSRF)", evil.status === 403, evil.text);
   check("non-admin can't open admin API", (await A("GET", "/api/admin/overview")).status === 403);
+  check("non-admin can't download a backup", (await A("GET", "/api/admin/backup/download")).status === 403);
+  const claimBad = await A("POST", "/api/admin/claim", { code: "WRONG-CODE-0000" });
+  check("wrong admin setup code rejected", claimBad.status === 400 || claimBad.status === 409, claimBad.text);
+  check("bad ids give 404, not a server error", (await A("GET", "/api/conversations/abc")).status === 404 && (await A("GET", "/api/conversations/1.5")).status === 404 && (await A("DELETE", "/api/conversations/99999999999")).status === 404);
 
   if (aiOn) {
     console.log("\nAI");
@@ -175,11 +183,21 @@ function check(name, ok, detail = "") {
   const again = await A("GET", "/api/conversations");
   check("chats still there after re-login", again.status === 200 && again.data.conversations.some(c => c.id === ca.data.id));
 
-  if (process.env.SMOKE_ADMIN_USER) {
+  if (process.env.SMOKE_ADMIN_USER || process.env.SMOKE_ADMIN_SETUP_CODE) {
     console.log("\nAdmin");
     const ADM = client();
-    const al = await ADM("POST", "/api/login", { username: process.env.SMOKE_ADMIN_USER, password: process.env.SMOKE_ADMIN_PASS });
-    check("admin can log in", al.status === 200, al.text);
+    if (process.env.SMOKE_ADMIN_SETUP_CODE) {
+      const admName = "smokeAdmin_" + id;
+      check("admin-to-be registers", (await ADM("POST", "/api/register", { username: admName, password: pw, age: 30 })).status === 200);
+      check("status says the admin setup is open", (await ADM("GET", "/api/status")).data.adminSetupOpen === true);
+      const cl = await ADM("POST", "/api/admin/claim", { code: process.env.SMOKE_ADMIN_SETUP_CODE });
+      check("setup code makes them the first admin", cl.status === 200 && cl.data.isAdmin, cl.text);
+      check("…the code can't be used again", (await B("POST", "/api/admin/claim", { code: process.env.SMOKE_ADMIN_SETUP_CODE })).status === 409);
+      check("…and status now shows admin", (await ADM("GET", "/api/status")).data.isAdmin === true);
+    } else {
+      const al = await ADM("POST", "/api/login", { username: process.env.SMOKE_ADMIN_USER, password: process.env.SMOKE_ADMIN_PASS });
+      check("admin can log in", al.status === 200, al.text);
+    }
     const ov = await ADM("GET", "/api/admin/overview");
     check("admin overview loads", ov.status === 200 && ov.data.users >= 2, ov.text);
     const ul = await ADM("GET", "/api/admin/users?q=" + userA);
@@ -201,8 +219,18 @@ function check(name, ok, detail = "") {
     const us = await ADM("GET", "/api/admin/usage?days=1");
     check("admin usage report loads", us.status === 200 && Array.isArray(us.data.rows), us.text);
     check("admin error log loads", (await ADM("GET", "/api/admin/errors")).status === 200);
-    const bk = await ADM("POST", "/api/admin/backups");
-    check("admin can run a backup", bk.status === 200 && /^sam-.*\.sqlite$/.test(bk.data.file || ""), bk.text);
+    if (uA) {
+      check("admin can make user A an admin", (await ADM("PATCH", `/api/admin/users/${uA.id}`, { role: "admin" })).status === 200 && (await A("GET", "/api/status")).data.isAdmin === true);
+      check("…and take it away again", (await ADM("PATCH", `/api/admin/users/${uA.id}`, { role: "user" })).status === 200 && (await A("GET", "/api/status")).data.isAdmin === false);
+    }
+    const dl = await ADM("GET", "/api/admin/backup/download");
+    check("admin can download a full backup", dl.status === 200 && dl.data.format === "sam-backup-v1" && dl.data.counts?.users >= 2, dl.text.slice(0, 200));
+    if (engine === "sqlite") {
+      const bk = await ADM("POST", "/api/admin/backups");
+      check("admin can run a server backup file (SQLite)", bk.status === 200 && /^sam-.*\.sqlite$/.test(bk.data.file || ""), bk.text);
+    } else {
+      check("server backup files are refused on Postgres (download instead)", (await ADM("POST", "/api/admin/backups")).status === 400);
+    }
   } else {
     console.log("\n  ⏭  Admin tests skipped — set SMOKE_ADMIN_USER and SMOKE_ADMIN_PASS to include them");
   }

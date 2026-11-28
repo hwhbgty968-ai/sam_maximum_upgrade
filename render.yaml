@@ -1,10 +1,11 @@
 # Render Blueprint for Sam. In Render: New → Blueprint → pick this repo.
 # Secrets marked sync:false are entered in the Render dashboard, never committed.
+# Data lives in Postgres (DATABASE_URL, e.g. a free Neon database), so the free plan keeps everything.
 services:
   - type: web
     name: sam-ai
     runtime: node
-    plan: starter            # a persistent disk needs a paid plan; on free, the database is wiped on every deploy
+    plan: free               # free sleeps after 15 idle minutes (about 1 minute to wake); starter stays awake
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /healthz
@@ -13,12 +14,10 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
-      - key: DATA_DIR
-        value: /var/data
+      - key: DATABASE_URL
+        sync: false
       - key: SESSION_SECRET
         generateValue: true
-      - key: ADMIN_USERNAMES
-        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
@@ -27,7 +26,3 @@ services:
         sync: false
       - key: DEEPSEEK_API_KEY
         sync: false
-    disk:
-      name: sam-data
-      mountPath: /var/data
-      sizeGB: 1
