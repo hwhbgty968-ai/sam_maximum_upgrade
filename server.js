@@ -25,7 +25,8 @@ const IS_PROD = process.env.NODE_ENV === "production" || !!process.env.RENDER;
 const MODES = ["chat", "web", "research", "vision", "image", "coding", "council"];
 
 ai.init();
-ai.verifyModels().catch(e => console.warn("[sam] model check failed:", e.message));
+// Check every provider's model list (free; also catches rejected keys before any user does).
+const modelsChecked = ai.verifyModels().catch(e => console.warn("[sam] model check failed:", e.message));
 
 // Express 4 doesn't catch errors from async handlers by itself; this passes them to the error handler.
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -361,7 +362,19 @@ app.post("/api/admin/users/:id/reset-link", adminOnly, wrap(async (req, res) => 
 app.get("/api/admin/usage", adminOnly, wrap(async (req, res) => res.json(await admin.usageReport(req.query.days))));
 app.get("/api/admin/errors", adminOnly, wrap(async (req, res) => res.json({ errors: await admin.recentErrors(req.query.limit) })));
 app.post("/api/admin/providers/recheck", adminOnly, wrap(async (req, res) => {
-  await ai.verifyModels(); res.json({ providers: ai.providerStatus() });
+  await ai.verifyModels(); res.json({ providers: ai.providerStatus(), missing: ai.missingProviders() });
+}));
+// Provider diagnostics: key status, models, last live test, recent failures by type. Never includes keys.
+app.get("/api/admin/providers", adminOnly, wrap(async (req, res) => {
+  res.json({ providers: ai.providerStatus(), missing: ai.missingProviders(), lastTest: (await loadProviderTests())?.at || null });
+}));
+// Live test: a tiny request to every configured model (costs a few tokens per model).
+app.post("/api/admin/providers/test", adminOnly, wrap(async (req, res) => {
+  const only = typeof req.body?.provider === "string" && ai.PROVIDERS[req.body.provider] ? req.body.provider : null;
+  const run = await ai.testProviders({ only });
+  await saveProviderTests(run);
+  log("info", "admin ran provider test", { requestId: req.id, adminId: req.user.id, summary: summariseTests(run) });
+  res.json({ test: run, providers: ai.providerStatus(), missing: ai.missingProviders() });
 }));
 app.get("/api/admin/backups", adminOnly, (req, res) => res.json({ backups: admin.listBackups(), dir: admin.BACKUP_DIR, engine }));
 app.post("/api/admin/backups", adminOnly, api(async (req, res) => res.json(await admin.runBackup())));
@@ -407,6 +420,25 @@ async function buildSystemPrompt(userId, mode, { assistant = null, settings = nu
   ].join("\n");
 }
 
+// Failed attempts are logged as failed usage (never charged), so admins can see what's failing and how often.
+function recordAttempts(userId, mode, attempts) {
+  for (const a of attempts || []) record(userId, mode, { provider: a.provider, model: a.model }, false);
+}
+
+// Last live provider test, kept in the database so it survives restarts.
+async function loadProviderTests() {
+  try { const r = await db.get("SELECT value FROM app_settings WHERE key='provider_tests'"); return r ? JSON.parse(r.value) : null; } catch { return null; }
+}
+async function saveProviderTests(run) {
+  const prev = (await loadProviderTests()) || { results: {} };
+  const merged = { at: run.at, results: { ...prev.results, ...run.results } };
+  await db.run("INSERT INTO app_settings(key,value) VALUES('provider_tests',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", JSON.stringify(merged));
+}
+function summariseTests(run) {
+  return Object.entries(run.results).map(([n, r]) => r.key === "missing" ? `${n}: no key`
+    : `${n}: ` + r.models.filter(m => !m.sameAs).map(m => m.ok ? `✓ ${m.model} (${m.ms}ms)` : `✗ ${m.model} — ${m.label}${m.status ? " " + m.status : ""}`).join(", ")).join(" | ");
+}
+
 function record(userId, mode, result, ok = true) {
   logUsage({ userId, provider: result?.provider, model: result?.model, mode, inputTokens: result?.usage?.input, outputTokens: result?.usage?.output, estimated: result?.usage?.estimated, ok });
 }
@@ -436,13 +468,15 @@ app.post("/api/analyse-image", requireAuth, chatLimiter, (req, res, next) => {
         ] }
       ]
     });
+    recordAttempts(userId, mode, result.attempts);
     record(userId, mode, result);
     const answer = result.text || "I couldn't analyse that image.";
     const saved = await chats.saveExchange(userId, conversationId, mode, "[Image] " + question, answer, result.model);
     res.json({ answer, conversationId, mode, title: saved.title, model: result.model, provider: result.provider, userMessageId: saved.userMessageId, assistantMessageId: saved.assistantMessageId });
   } catch (err) {
     logError({ requestId: req.id, userId: req.session.userId, route: "/api/analyse-image", error: err });
-    res.status(502).json({ error: "Sam couldn't analyse that image. Please try again." });
+    recordAttempts(req.session.userId, "vision", err.attempts);
+    res.status(502).json({ error: `${ai.describeFailure(err, { isAdmin: admin.isAdmin(req.user) })} (ref: ${req.id})` });
   }
 });
 
@@ -528,7 +562,14 @@ app.post("/api/chat", requireAuth, chatLimiter, wrap(async (req, res, next) => {
     } else {
       const candidates = ai.routeCandidates({ model: req.body.model ?? settings.defaultModel, speed: req.body.speed ?? settings.defaultSpeed, mode: effMode, message });
       result = await ai.stream({ messages, candidates, signal: controller.signal, onStart, onDelta });
+      // The model the user picked wasn't usable: say so, instead of silently answering with another one.
+      const picked = req.body.model ?? settings.defaultModel;
+      if (picked && picked !== "auto" && picked !== `${result.provider}:${result.model}`) {
+        const why = result.attempts?.find(a => `${a.provider}:${a.model}` === picked);
+        send({ status: `${picked.split(":")[1]} wasn't available${why ? " (" + ai.KINDS[why.kind].label.toLowerCase() + ")" : ""}, so Sam answered with ${result.model}.` });
+      }
     }
+    recordAttempts(userId, mode, result.attempts);
     record(userId, mode, result);
     const answer = result.text || "My circuits had a tiny wobble — I got an empty reply. Try again?";
     const modelLabel = useCouncil ? `council → ${result.model}` : result.model + (auto ? ` · auto: ${auto.label}` : "") + (assistant?.id && assistant.id !== "sam" ? ` · ${assistant.name}` : "");
@@ -542,12 +583,10 @@ app.post("/api/chat", requireAuth, chatLimiter, wrap(async (req, res, next) => {
       return res.end();
     }
     logError({ requestId: req.id, userId, route: "/api/chat", error: e });
-    record(userId, mode, started || {}, false);
-    const msg = e.status === 401 || e.status === 403
-      ? "The AI provider rejected Sam's API key. Check the key in your .env / Render settings."
-      : e.status === 429 ? "The AI provider is rate-limiting Sam right now. Try again in a minute."
-      : "Sam hit a connection problem talking to the AI. Please try again.";
-    send({ error: `${msg} (ref: ${req.id})` });
+    if (e.attempts?.length) recordAttempts(userId, mode, e.attempts); else record(userId, mode, started || {}, false);
+    // Plain-English cause (overloaded, rate limited, quota, bad key…). Admins also see each provider's result.
+    const msg = ai.describeFailure(e, { isAdmin: admin.isAdmin(req.user) });
+    send({ error: `${msg} (ref: ${req.id})`, errorKind: e.kind || null });
     res.end();
   }
 }));
@@ -596,11 +635,22 @@ async function main() {
     cookie: { httpOnly: true, sameSite: "lax", secure: IS_PROD, maxAge: 30 * 24 * 60 * 60 * 1000 }
   });
   await admin.ensureSetupCode();
+  ai.loadTestResults(await loadProviderTests());
   const server = app.listen(PORT, () => {
     console.log(`Sam is ready at http://localhost:${PORT}`);
     console.log(`[sam] database: ${engine === "postgres" ? "Postgres (" + db.location + ") — permanent" : "SQLite file " + db.location}`);
     console.log(`[sam] AI providers: ${Object.keys(ai.providerStatus()).join(", ") || "NONE — add an API key to .env"}`);
   });
+  // Live-test every model at most every 6 hours (Render's free plan restarts often), in the background.
+  // Results show in the admin dashboard and the log; definite failures (no quota, missing model) are routed around.
+  if (process.env.PROVIDER_STARTUP_TEST !== "0" && ai.isConfigured()) (async () => {
+    await modelsChecked;
+    const last = await loadProviderTests();
+    if (last && Date.now() - Date.parse(last.at) < 6 * 60 * 60 * 1000) return;
+    const run = await ai.testProviders();
+    await saveProviderTests(run);
+    console.log(`[sam] provider test: ${summariseTests(run)}`);
+  })().catch(e => console.warn("[sam] provider test failed:", e.message));
   // Render stops the old server on every deploy: finish requests, then close database connections cleanly.
   const stop = () => server.close(() => db.close().finally(() => process.exit(0)));
   process.once("SIGTERM", stop);

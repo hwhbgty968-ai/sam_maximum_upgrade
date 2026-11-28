@@ -22,7 +22,7 @@ docs/                ROADMAP.md, ARCHITECTURE.md
 1. Browser POSTs `/api/chat`, then reads Server-Sent Events (`status`, `model`, `delta`, `done` and `error` events).
 2. `requireAuth` loads the user from the database, so disabled or deleted users are rejected on every request.
 3. The server builds a system prompt (age, memories, mode) plus the last 20 messages of the chat.
-4. `ai.routeCandidates()` picks the tier (fast, balanced or deep) and the provider order. `ai.stream()` tries each candidate and only falls back if nothing has been streamed yet.
+4. `ai.routeCandidates()` picks the tier (fast, balanced or deep) and builds the try-order: the chosen model, then the same tier on every other usable provider, then the other tiers (`TIER_FALLBACK`). Providers whose key was rejected are left out; models cooling down after a failure go last. `ai.stream()` tries each candidate and only falls back if nothing has been streamed yet. Every failure is classified (`classifyError`: invalid_key, model_not_found, quota, rate_limit, outage, network, bad_request) and recorded in an in-memory health table; `describeFailure` turns the most useful error into a plain message. Live test results (`testProviders`) are stored in `app_settings.provider_tests` so a restart remembers them.
 5. The answer is saved with the model name, and usage is logged.
 
 ## Decisions
